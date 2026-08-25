@@ -164,6 +164,6 @@ codemeet-go/
 <br>
 <a href="https://github.com/AbolfazlZarei-dev"><img src="https://img.shields.io/badge/GitHub-AbolfazlZarei--dev-181717?style=flat-square&logo=github" alt="GitHub"></a>
 <br>
-© 2024 CodeMeet Go SDK. All rights reserved.
+© 2026 CodeMeet Go SDK. All rights reserved.
 
 </div>
