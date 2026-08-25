@@ -43,7 +43,7 @@ jobs:
         run: |
           git archive \
             --format=tar.gz \
-            --output=ParsBale-bot-go-${GITHUB_REF_NAME}.tar.gz \
+            --output=codemeet-go-${GITHUB_REF_NAME}.tar.gz \
             "${GITHUB_SHA}"
 
       - name: Generate provenance subjects
@@ -53,11 +53,11 @@ jobs:
           set -euo pipefail
 
           sha256sum \
-            "ParsBale-bot-go-${GITHUB_REF_NAME}.tar.gz" \
+            "codemeet-go-${GITHUB_REF_NAME}.tar.gz" \
             > checksums.txt
 
-          echo "hashes=$(sha256sum \
-            "ParsBale-bot-go-${GITHUB_REF_NAME}.tar.gz" \
+          echo "digests=$(sha256sum \
+            "codemeet-go-${GITHUB_REF_NAME}.tar.gz" \
             | base64 -w0)" >> "${GITHUB_OUTPUT}"
 
   provenance:
