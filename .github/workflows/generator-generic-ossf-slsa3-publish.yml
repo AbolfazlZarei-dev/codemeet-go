@@ -1,0 +1,77 @@
+name: SLSA Generic Provenance
+
+on:
+  workflow_dispatch:
+  release:
+    types:
+      - created
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: Generate Release Artifact
+    runs-on: ubuntu-latest
+
+    outputs:
+      digests: ${{ steps.hash.outputs.digests }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      - name: Download dependencies
+        run: go mod download
+
+      - name: Verify dependencies
+        run: go mod verify
+
+      - name: Build
+        run: go build -v ./...
+
+      - name: Test
+        run: go test ./...
+
+      - name: Create source archive
+        run: |
+          git archive \
+            --format=tar.gz \
+            --output=ParsBale-bot-go-${GITHUB_REF_NAME}.tar.gz \
+            "${GITHUB_SHA}"
+
+      - name: Generate provenance subjects
+        id: hash
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          sha256sum \
+            "ParsBale-bot-go-${GITHUB_REF_NAME}.tar.gz" \
+            > checksums.txt
+
+          echo "hashes=$(sha256sum \
+            "ParsBale-bot-go-${GITHUB_REF_NAME}.tar.gz" \
+            | base64 -w0)" >> "${GITHUB_OUTPUT}"
+
+  provenance:
+    name: Generate SLSA Provenance
+    needs:
+      - build
+
+    permissions:
+      actions: read
+      id-token: write
+      contents: write
+
+    uses: slsa-framework/slsa-github-generator/.github/workflows/generator_generic_slsa3.yml@v2.1.0
+
+    with:
+      base64-subjects: "${{ needs.build.outputs.digests }}"
+      upload-assets: true
