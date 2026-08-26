@@ -10,6 +10,7 @@ import (
 	"regexp"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/AbolfazlZarei-dev/codemeet-go/api"
@@ -18,28 +19,22 @@ import (
 	"github.com/AbolfazlZarei-dev/codemeet-go/errors"
 	"github.com/AbolfazlZarei-dev/codemeet-go/logger"
 	"github.com/AbolfazlZarei-dev/codemeet-go/methods"
-	"github.com/AbolfazlZarei-dev/codemeet-go/middleware"
 	"github.com/AbolfazlZarei-dev/codemeet-go/models"
 	"github.com/AbolfazlZarei-dev/codemeet-go/polling"
 	"github.com/AbolfazlZarei-dev/codemeet-go/ratelimit"
 	"github.com/AbolfazlZarei-dev/codemeet-go/retry"
 	"github.com/AbolfazlZarei-dev/codemeet-go/webhook"
-	"github.com/AbolfazlZarei-dev/codemeet-go/ws"
+	"golang.org/x/sync/singleflight"
 )
 
-// Version نسخه کتابخانه
-const Version = "1.0.0"
+const (
+	Version       = "1.0.0"
+	Author        = "Abolfazl Zarei"
+	GitHubProfile = "github.com/AbolfazlZarei-dev"
+	GitHubRepo    = "github.com/AbolfazlZarei-dev/codemeet-go"
+)
 
-// Author سازنده کتابخانه
-const Author = "Abolfazl Zarei"
-
-// GitHubProfile آدرس گیت‌هاب سازنده
-const GitHubProfile = "github.com/AbolfazlZarei-dev"
-
-// GitHubRepo آدرس مخزن کتابخانه
-const GitHubRepo = "github.com/AbolfazlZarei-dev/codemeet"
-
-// Cache اینترفیس کش برای پشتیبانی از انواع کش‌ها
+// Cache interface برای کش
 type Cache interface {
 	Get(key string) (interface{}, bool)
 	Set(key string, value interface{})
@@ -47,26 +42,23 @@ type Cache interface {
 	Close()
 }
 
-// DashboardWriter بافر لاگ‌ها برای داشبورد
+var ansiRegex = regexp.MustCompile(`\x1b\[[0-9;]*m`)
+
+// DashboardWriter برای داشبورد
 type DashboardWriter struct {
 	mu   sync.Mutex
 	logs []string
 }
 
-// Write پاکسازی کدهای ANSI قبل از ذخیره در بافر داشبورد
 func (d *DashboardWriter) Write(p []byte) (int, error) {
 	d.mu.Lock()
 	defer d.mu.Unlock()
-
-	// حذف کدهای رنگی (ANSI escape codes) برای نمایش تمیز در پنل وب
-	re := regexp.MustCompile(`\x1b\[[0-9;]*m`)
-	clean := re.ReplaceAll(p, []byte{})
-
+	clean := ansiRegex.ReplaceAll(p, []byte{})
 	s := strings.TrimSpace(string(clean))
 	if s != "" {
 		d.logs = append(d.logs, s)
-		if len(d.logs) > 100 { // نگه‌داشتن آخرین ۱۰۰ لاگ
-			d.logs = d.logs[len(d.logs)-100:]
+		if len(d.logs) > 200 {
+			d.logs = d.logs[len(d.logs)-200:]
 		}
 	}
 	return len(p), nil
@@ -80,29 +72,39 @@ func (d *DashboardWriter) GetLogs() []string {
 	return cp
 }
 
-// Bot ربات اصلی کدمیت با تمام قابلیت‌ها
+// Bot ساختار اصلی ربات
 type Bot struct {
-	token       string
-	baseURL     string
-	api         *api.Client
-	dispatcher  *dispatcher.Dispatcher
-	rateLimit   *ratelimit.Limiter
-	retry       *retry.Policy
-	cache       Cache
-	logger      *logger.Logger
-	wsHub       *ws.Hub
-	methods     *methods.Methods
-	middlewares []middleware.Middleware
+	token      string
+	baseURL    string
+	api        *api.Client
+	dispatcher *dispatcher.Dispatcher
+	rateLimit  *ratelimit.Limiter
+	retry      *retry.Policy
+	cache      Cache
+	logger     *logger.Logger
+	methods    *methods.Methods
 
 	mu             sync.RWMutex
 	me             *models.User
-	meFetched      bool
+	meFetched      atomic.Bool
 	runMode        string
 	activeFeatures []string
 	dashWriter     *DashboardWriter
+
+	getMeSF singleflight.Group
+
+	// آمار داخلی ربات
+	stats botStats
 }
 
-// Option تابع پیکربندی
+type botStats struct {
+	UpdatesProcessed atomic.Int64
+	CommandsExecuted atomic.Int64
+	MessagesSent     atomic.Int64
+	ErrorsCount      atomic.Int64
+	StartTime        time.Time
+}
+
 type Option func(*Bot)
 
 func WithBaseURL(url string) Option {
@@ -156,22 +158,11 @@ func WithLogger(l *logger.Logger) Option {
 	return func(b *Bot) { b.logger = l }
 }
 
-// WithMiddleware افزودن میان‌افزارها
-func WithMiddleware(mws ...middleware.Middleware) Option {
+// WithMiddleware برای اضافه کردن میدل‌ورها به صورت مستقل
+func WithMiddleware(mws ...dispatcher.MiddlewareFunc) Option {
 	return func(b *Bot) {
-		b.middlewares = append(b.middlewares, mws...)
 		b.activeFeatures = append(b.activeFeatures, fmt.Sprintf("Middlewares (%d)", len(mws)))
-		for _, mw := range mws {
-			mw := mw
-			b.dispatcher.Use(func(next dispatcher.HandlerFunc) dispatcher.HandlerFunc {
-				return func(ctx context.Context, u *models.Update) {
-					wrappedNext := func(ctx context.Context, u *models.Update) {
-						next(ctx, u)
-					}
-					mw(wrappedNext)(ctx, u)
-				}
-			})
-		}
+		b.dispatcher.Use(mws...)
 	}
 }
 
@@ -182,20 +173,20 @@ func New(token string, opts ...Option) (*Bot, error) {
 	}
 
 	b := &Bot{
-		token:       token,
-		baseURL:     "https://botapi.codemeet.chat",
-		dispatcher:  dispatcher.New(100),
-		retry:       retry.DefaultPolicy(),
-		rateLimit:   ratelimit.New(30),
-		logger:      logger.New(logger.LevelInfo),
-		middlewares: []middleware.Middleware{},
+		token:      token,
+		baseURL:    "https://botapi.codemeet.chat",
+		dispatcher: dispatcher.New(200),
+		retry:      retry.DefaultPolicy(),
+		rateLimit:  ratelimit.New(30),
+		logger:     logger.New(logger.LevelInfo),
 		activeFeatures: []string{
 			"Dispatcher",
+			"Worker Pool",
 		},
+		stats: botStats{StartTime: time.Now()},
 	}
 
 	b.api = api.NewClient(b.baseURL, token, b.logger)
-	b.wsHub = ws.NewHub(b.api, b.logger)
 
 	for _, opt := range opts {
 		opt(b)
@@ -205,38 +196,54 @@ func New(token string, opts ...Option) (*Bot, error) {
 	return b, nil
 }
 
-// API دسترسی به متدهای API
-func (b *Bot) API() *methods.Methods { return b.methods }
-
-// Dispatcher دسترسی به Update Router
+// Getters
+func (b *Bot) API() *methods.Methods              { return b.methods }
 func (b *Bot) Dispatcher() *dispatcher.Dispatcher { return b.dispatcher }
+func (b *Bot) Cache() Cache                       { return b.cache }
+func (b *Bot) Logger() *logger.Logger             { return b.logger }
+func (b *Bot) RateLimiter() *ratelimit.Limiter    { return b.rateLimit }
+func (b *Bot) RetryPolicy() *retry.Policy         { return b.retry }
+func (b *Bot) Token() string                      { return b.token }
+func (b *Bot) BaseURL() string                    { return b.baseURL }
 
-// StartPolling شروع Long Polling
+// StartPolling شروع با Long Polling
 func (b *Bot) StartPolling(ctx context.Context, cfg polling.Config) error {
-	b.runMode = "Long Polling"
+	b.setRunMode("Long Polling")
 	b.printStartupBanner(ctx)
 	p := polling.New(b.api, b.dispatcher, b.logger, cfg)
 	return p.Start(ctx)
 }
 
-// StartWebhook راه‌اندازی سرور Webhook
+// StartWebhook شروع با Webhook
 func (b *Bot) StartWebhook(ctx context.Context, cfg webhook.Config) error {
-	b.runMode = "Webhook"
+	b.setRunMode("Webhook")
 	b.printStartupBanner(ctx)
 	wh := webhook.New(b.api, b.dispatcher, b.logger, cfg)
 	return wh.Start(ctx)
 }
 
-// printStartupBanner چاپ اطلاعات سازنده و وضعیت ربات در ترمینال
+func (b *Bot) setRunMode(mode string) {
+	b.mu.Lock()
+	b.runMode = mode
+	b.mu.Unlock()
+}
+
 func (b *Bot) printStartupBanner(ctx context.Context) {
 	var botName, botUser string
-	me, err := b.API().Bot().GetMe(ctx)
+
+	bannerCtx, cancel := context.WithTimeout(ctx, 15*time.Second)
+	defer cancel()
+
+	me, err := b.API().Bot().GetMe(bannerCtx)
 	if err == nil && me != nil {
 		botName = me.FullName()
 		botUser = "@" + me.Username
 	} else {
 		botName = "Unknown (Check Token/Network)"
 		botUser = "Unknown"
+		if err != nil {
+			fmt.Printf("⚠️ GetMe Error: %v\n", err)
+		}
 	}
 
 	fmt.Println("--------------------------------------------------")
@@ -250,9 +257,15 @@ func (b *Bot) printStartupBanner(ctx context.Context) {
 	fmt.Printf(" Bot Name     : %s\n", botName)
 	fmt.Printf(" Bot Username : %s\n", botUser)
 	fmt.Println("--------------------------------------------------")
-	fmt.Printf(" Run Mode     : %s\n", b.runMode)
+
+	b.mu.RLock()
+	mode := b.runMode
+	features := b.activeFeatures
+	b.mu.RUnlock()
+
+	fmt.Printf(" Run Mode     : %s\n", mode)
 	fmt.Println(" Active Features:")
-	for _, f := range b.activeFeatures {
+	for _, f := range features {
 		fmt.Printf("  - %s\n", f)
 	}
 	fmt.Println("--------------------------------------------------")
@@ -260,50 +273,51 @@ func (b *Bot) printStartupBanner(ctx context.Context) {
 	fmt.Println("--------------------------------------------------")
 }
 
-// StartDashboard راه‌اندازی داشبورد وب برای مانیتورینگ ربات
+// StartDashboard داشبورد مانیتورینگ
 func (b *Bot) StartDashboard(ctx context.Context, addr string) error {
 	b.dashWriter = &DashboardWriter{}
-
-	// اتصال خروجی لاگر به بافر داشبورد برای نمایش لاگ‌های زنده
 	if b.logger != nil {
 		b.logger.SetOutput(io.MultiWriter(os.Stdout, b.dashWriter))
-		b.logger.SetLevel(logger.LevelInfo) // اضافه شد: تنظیم سطح لاگر برای داشبورد
 	}
 
 	mux := http.NewServeMux()
-
 	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "text/html; charset=utf-8")
 		fmt.Fprint(w, dashboardHTML)
 	})
-
 	mux.HandleFunc("/api/info", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(map[string]interface{}{
+		b.mu.RLock()
+		info := map[string]interface{}{
 			"author":   Author,
 			"github":   GitHubProfile,
 			"repo":     GitHubRepo,
 			"version":  Version,
-			"runMode":  b.RunMode(),
+			"runMode":  b.runMode,
 			"features": b.activeFeatures,
-		})
+			"uptime":   time.Since(b.stats.StartTime).String(),
+		}
+		b.mu.RUnlock()
+		json.NewEncoder(w).Encode(info)
 	})
-
 	mux.HandleFunc("/api/stats", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(b.Stats())
+		s := b.api.StatsSnapshot()
+		json.NewEncoder(w).Encode(map[string]interface{}{
+			"api":               s,
+			"updates_processed": b.stats.UpdatesProcessed.Load(),
+			"commands_executed": b.stats.CommandsExecuted.Load(),
+			"messages_sent":     b.stats.MessagesSent.Load(),
+			"errors":            b.stats.ErrorsCount.Load(),
+			"uptime":            time.Since(b.stats.StartTime).String(),
+		})
 	})
-
 	mux.HandleFunc("/api/logs", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		json.NewEncoder(w).Encode(b.dashWriter.GetLogs())
 	})
 
-	srv := &http.Server{
-		Addr:    addr,
-		Handler: mux,
-	}
-
+	srv := &http.Server{Addr: addr, Handler: mux}
 	go func() {
 		<-ctx.Done()
 		shutdownCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
@@ -315,15 +329,15 @@ func (b *Bot) StartDashboard(ctx context.Context, addr string) error {
 	return srv.ListenAndServe()
 }
 
-// RunMode متدی برای دریافت وضعیت فعلی اجرای ربات
 func (b *Bot) RunMode() string {
+	b.mu.RLock()
+	defer b.mu.RUnlock()
 	if b.runMode == "" {
 		return "Stopped"
 	}
 	return b.runMode
 }
 
-// SetWebhook تنظیم Webhook در سرور کدمیت
 func (b *Bot) SetWebhook(ctx context.Context, url, secretToken string) error {
 	return b.API().Webhook().Set(ctx, &models.SetWebhookRequest{
 		URL:         url,
@@ -331,12 +345,11 @@ func (b *Bot) SetWebhook(ctx context.Context, url, secretToken string) error {
 	})
 }
 
-// DeleteWebhook حذف Webhook
 func (b *Bot) DeleteWebhook(ctx context.Context) error {
 	return b.API().Webhook().Delete(ctx)
 }
 
-// GetMe دریافت اطلاعات ربات (با کش)
+// GetMe با کش و singleflight
 func (b *Bot) GetMe(ctx context.Context) (*models.User, error) {
 	if b.cache != nil {
 		if v, ok := b.cache.Get("me"); ok {
@@ -345,76 +358,54 @@ func (b *Bot) GetMe(ctx context.Context) (*models.User, error) {
 			}
 		}
 	}
-
-	b.mu.RLock()
-	if b.meFetched && b.me != nil {
-		me := b.me
-		b.mu.RUnlock()
-		return me, nil
-	}
-	b.mu.RUnlock()
-
-	b.mu.Lock()
-	if b.meFetched && b.me != nil {
-		me := b.me
-		b.mu.Unlock()
-		return me, nil
-	}
-	b.mu.Unlock()
-
-	me, err := b.API().Bot().GetMe(ctx)
+	v, err, _ := b.getMeSF.Do("getMe", func() (interface{}, error) {
+		return b.API().Bot().GetMe(ctx)
+	})
 	if err != nil {
 		return nil, err
 	}
-
+	me := v.(*models.User)
 	b.mu.Lock()
 	b.me = me
-	b.meFetched = true
+	b.meFetched.Store(true)
 	b.mu.Unlock()
-
 	if b.cache != nil {
 		b.cache.Set("me", me)
 	}
 	return me, nil
 }
 
-// ResetMe پاک کردن cache مربوط به GetMe
 func (b *Bot) ResetMe() {
 	b.mu.Lock()
 	b.me = nil
-	b.meFetched = false
 	b.mu.Unlock()
+	b.meFetched.Store(false)
 	if b.cache != nil {
 		b.cache.Delete("me")
 	}
 }
 
-// WS دسترسی به WebSocket Hub
-func (b *Bot) WS() *ws.Hub { return b.wsHub }
-
-// Cache دسترسی به کش
-func (b *Bot) Cache() Cache { return b.cache }
-
-// Logger دسترسی به لاگر
-func (b *Bot) Logger() *logger.Logger { return b.logger }
-
-// RateLimiter دسترسی به rate limiter
-func (b *Bot) RateLimiter() *ratelimit.Limiter { return b.rateLimit }
-
-// RetryPolicy دسترسی به retry policy
-func (b *Bot) RetryPolicy() *retry.Policy { return b.retry }
-
-// Helper methods
+// Helper dispatcher methods
 func (b *Bot) OnCommand(cmd string, h func(ctx context.Context, msg *models.Message)) {
-	b.dispatcher.OnCommand(cmd, h)
+	b.dispatcher.OnCommand(cmd, func(ctx context.Context, msg *models.Message) {
+		b.stats.CommandsExecuted.Add(1)
+		b.stats.UpdatesProcessed.Add(1)
+		h(ctx, msg)
+	})
 }
 
 func (b *Bot) OnMessage(h func(ctx context.Context, msg *models.Message)) {
-	b.dispatcher.OnMessage(h)
+	b.dispatcher.OnMessage(func(ctx context.Context, msg *models.Message) {
+		b.stats.UpdatesProcessed.Add(1)
+		h(ctx, msg)
+	})
 }
 
 func (b *Bot) OnCallback(h func(ctx context.Context, cq *models.CallbackQuery)) {
-	b.dispatcher.OnCallback(h)
+	b.dispatcher.OnCallback(func(ctx context.Context, cq *models.CallbackQuery) {
+		b.stats.UpdatesProcessed.Add(1)
+		h(ctx, cq)
+	})
 }
 
 func (b *Bot) OnText(text string, h func(ctx context.Context, msg *models.Message)) {
@@ -427,6 +418,7 @@ func (b *Bot) OnRegex(pattern string, h func(ctx context.Context, msg *models.Me
 
 func (b *Bot) Fallback(h func(ctx context.Context, u *models.Update)) {
 	b.dispatcher.Fallback(func(ctx context.Context, u *models.Update) {
+		b.stats.UpdatesProcessed.Add(1)
 		h(ctx, u)
 	})
 }
@@ -435,36 +427,52 @@ func (b *Bot) Use(mw ...dispatcher.MiddlewareFunc) {
 	b.dispatcher.Use(mw...)
 }
 
+// Message helpers
 func (b *Bot) Send(ctx context.Context, chatID, text string) (*models.Message, error) {
-	return b.API().Messages().SendText(ctx, chatID, text)
+	m, err := b.API().Messages().SendText(ctx, chatID, text)
+	if err == nil {
+		b.stats.MessagesSent.Add(1)
+	} else {
+		b.stats.ErrorsCount.Add(1)
+	}
+	return m, err
 }
 
 func (b *Bot) SendHTML(ctx context.Context, chatID, text string) (*models.Message, error) {
-	return b.API().Messages().SendHTML(ctx, chatID, text)
+	m, err := b.API().Messages().SendHTML(ctx, chatID, text)
+	if err == nil {
+		b.stats.MessagesSent.Add(1)
+	}
+	return m, err
 }
 
 func (b *Bot) SendWithKeyboard(ctx context.Context, chatID, text string, markup interface{}) (*models.Message, error) {
-	return b.API().Messages().SendWithKeyboard(ctx, chatID, text, markup)
+	m, err := b.API().Messages().SendWithKeyboard(ctx, chatID, text, markup)
+	if err == nil {
+		b.stats.MessagesSent.Add(1)
+	}
+	return m, err
 }
 
 func (b *Bot) Reply(ctx context.Context, msg *models.Message, text string) (*models.Message, error) {
-	return b.API().Messages().Send(ctx, &methods.SendMessageRequest{
+	m, err := b.API().Messages().Send(ctx, &methods.SendMessageRequest{
 		ChatID:           msg.Chat.ID,
 		Text:             text,
 		ReplyToMessageID: msg.MessageID,
 	})
+	if err == nil {
+		b.stats.MessagesSent.Add(1)
+	}
+	return m, err
 }
 
 func (b *Bot) AnswerCallback(ctx context.Context, callbackID, text string, showAlert bool) error {
 	return b.API().Messages().AnswerCallbackSimple(ctx, callbackID, text, showAlert)
 }
 
-// Close بستن اتصالات
+// Close بستن منابع
 func (b *Bot) Close() error {
 	var errs []error
-	if b.wsHub != nil {
-		b.wsHub.Close()
-	}
 	if b.cache != nil {
 		b.cache.Close()
 	}
@@ -483,18 +491,32 @@ func (b *Bot) Close() error {
 		b.logger.Close()
 	}
 	if len(errs) > 0 {
-		return errors.NewValidationError("close", "errors during close")
+		return fmt.Errorf("errors during close: %v", errs)
 	}
 	return nil
 }
 
-// HealthCheck بررسی سلامت بات
+// HealthCheck بررسی سلامت
 func (b *Bot) HealthCheck(ctx context.Context) error {
 	_, err := b.API().Bot().GetMe(ctx)
 	return err
 }
 
-// Stats آمار بات
+// Stats آمار
 func (b *Bot) Stats() api.StatsSnapshot {
 	return b.api.StatsSnapshot()
+}
+
+// Uptime زمان فعالیت
+func (b *Bot) Uptime() time.Duration {
+	return time.Since(b.stats.StartTime)
+}
+
+// WithoutLogger برای غیرفعال کردن کامل لاگ‌ها در ترمینال
+func WithoutLogger() Option {
+	return func(b *Bot) {
+		l := logger.New(logger.LevelFatal)
+		l.SetOutput(io.Discard) // خروجی را به دوربین دور می‌اندازیم
+		b.logger = l
+	}
 }
