@@ -1,8 +1,4 @@
-بسیار عالی! با اضافه شدن پکیج‌های قدرتمندی مثل کپچا (`gatekeeper`)، تشخیص VPN (`vpndetector`)، سیستم اخطار (`warnsystem`)، صفحه‌بندی (`pagination`)، فیلتر کلمات (`profanityfilter`)، حالت تعمیرات (`maintenancemode`) و عضویت اجباری (`forcejoin`)، فایل README شما باید کاملاً به‌روزرسانی شود تا این قابلیت‌های جدید و سطح سازمانی (Enterprise) به نمایش گذاشته شوند.
 
-این فایل `README.md` نهایی و فوق‌العاده حرفه‌ای است. آن را کپی کرده و جایگزین محتوای قبلی کنید:
-
-```markdown
 <div align="center">
 
 <h1>🚀 CodeMeet Go SDK</h1>
@@ -196,4 +192,4 @@ go func() {
 © 2026 CodeMeet Go SDK. All rights reserved.
 
 </div>
-```
+
