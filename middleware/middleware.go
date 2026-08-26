@@ -8,18 +8,17 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/AbolfazlZarei-dev/codemeet-go/dispatcher"
 	"github.com/AbolfazlZarei-dev/codemeet-go/logger"
 	"github.com/AbolfazlZarei-dev/codemeet-go/models"
 )
 
-// Middleware نوع میدل‌ور
-type Middleware = func(next HandlerFunc) HandlerFunc
-
-// HandlerFunc امضای هندلر
-type HandlerFunc func(ctx context.Context, update *models.Update)
+// تایپ‌ها را با dispatcher هماهنگ می‌کنیم
+type MiddlewareFunc = dispatcher.MiddlewareFunc
+type HandlerFunc = dispatcher.HandlerFunc
 
 // Recovery میدل‌ور بازیابی panic
-func Recovery(log *logger.Logger) Middleware {
+func Recovery(log *logger.Logger) MiddlewareFunc {
 	return func(next HandlerFunc) HandlerFunc {
 		return func(ctx context.Context, u *models.Update) {
 			defer func() {
@@ -39,7 +38,7 @@ func Recovery(log *logger.Logger) Middleware {
 }
 
 // Logging میدل‌ور لاگ‌گیری
-func Logging(log *logger.Logger) Middleware {
+func Logging(log *logger.Logger) MiddlewareFunc {
 	return func(next HandlerFunc) HandlerFunc {
 		return func(ctx context.Context, u *models.Update) {
 			start := time.Now()
@@ -61,8 +60,7 @@ func Logging(log *logger.Logger) Middleware {
 }
 
 // RateLimit میدل‌ور محدودیت نرخ هر کاربر
-// بهینه با sharded map برای کاهش lock contention
-func RateLimit(perUser int, window time.Duration) Middleware {
+func RateLimit(perUser int, window time.Duration) MiddlewareFunc {
 	type counter struct {
 		count int
 		reset time.Time
@@ -117,32 +115,20 @@ func RateLimit(perUser int, window time.Duration) Middleware {
 	}
 }
 
-// Metrics میدل‌ور متریک
-func Metrics(counter *MetricsCounter) Middleware {
-	return func(next HandlerFunc) HandlerFunc {
-		return func(ctx context.Context, u *models.Update) {
-			counter.Inc(u.Type())
-			next(ctx, u)
-		}
-	}
-}
-
 // MetricsCounter شمارنده متریک — بهینه با atomic
 type MetricsCounter struct {
-	counts sync.Map // map[string]*int64
+	counts sync.Map
 }
 
 func NewMetricsCounter() *MetricsCounter {
 	return &MetricsCounter{}
 }
 
-// Inc افزایش شمارنده با استفاده از atomic استاندارد
 func (m *MetricsCounter) Inc(updateType string) {
 	v, _ := m.counts.LoadOrStore(updateType, new(int64))
 	atomic.AddInt64(v.(*int64), 1)
 }
 
-// Snapshot گرفتن کپی آمار با استفاده از atomic استاندارد
 func (m *MetricsCounter) Snapshot() map[string]int64 {
 	out := make(map[string]int64)
 	m.counts.Range(func(k, v interface{}) bool {
@@ -152,8 +138,18 @@ func (m *MetricsCounter) Snapshot() map[string]int64 {
 	return out
 }
 
+// Metrics میدل‌ور متریک
+func Metrics(counter *MetricsCounter) MiddlewareFunc {
+	return func(next HandlerFunc) HandlerFunc {
+		return func(ctx context.Context, u *models.Update) {
+			counter.Inc(u.Type())
+			next(ctx, u)
+		}
+	}
+}
+
 // Timeout میدل‌ور تایم‌اوت برای هر هندلر
-func Timeout(d time.Duration) Middleware {
+func Timeout(d time.Duration) MiddlewareFunc {
 	return func(next HandlerFunc) HandlerFunc {
 		return func(ctx context.Context, u *models.Update) {
 			ctx, cancel := context.WithTimeout(ctx, d)
@@ -172,7 +168,7 @@ func Timeout(d time.Duration) Middleware {
 }
 
 // BotOnly فقط بات‌ها اجازه عبور داشته باشند
-func BotOnly() Middleware {
+func BotOnly() MiddlewareFunc {
 	return func(next HandlerFunc) HandlerFunc {
 		return func(ctx context.Context, u *models.Update) {
 			if u.Message != nil && u.Message.From != nil && u.Message.From.IsBot {
@@ -183,7 +179,7 @@ func BotOnly() Middleware {
 }
 
 // UserOnly فقط کاربران عادی
-func UserOnly() Middleware {
+func UserOnly() MiddlewareFunc {
 	return func(next HandlerFunc) HandlerFunc {
 		return func(ctx context.Context, u *models.Update) {
 			if u.Message != nil && u.Message.From != nil && !u.Message.From.IsBot {
@@ -196,7 +192,7 @@ func UserOnly() Middleware {
 }
 
 // AdminOnly فقط ادمین‌ها (با تابع چک)
-func AdminOnly(isAdmin func(userID string) bool) Middleware {
+func AdminOnly(isAdmin func(userID string) bool) MiddlewareFunc {
 	return func(next HandlerFunc) HandlerFunc {
 		return func(ctx context.Context, u *models.Update) {
 			var userID string
@@ -213,7 +209,7 @@ func AdminOnly(isAdmin func(userID string) bool) Middleware {
 }
 
 // Blacklist میدل‌ور لیست سیاه
-func Blacklist(blacklist func(userID string) bool) Middleware {
+func Blacklist(blacklist func(userID string) bool) MiddlewareFunc {
 	return func(next HandlerFunc) HandlerFunc {
 		return func(ctx context.Context, u *models.Update) {
 			var userID string
@@ -231,7 +227,7 @@ func Blacklist(blacklist func(userID string) bool) Middleware {
 }
 
 // Whitelist میدل‌ور لیست سفید
-func Whitelist(whitelist func(userID string) bool) Middleware {
+func Whitelist(whitelist func(userID string) bool) MiddlewareFunc {
 	return func(next HandlerFunc) HandlerFunc {
 		return func(ctx context.Context, u *models.Update) {
 			var userID string
