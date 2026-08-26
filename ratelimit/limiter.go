@@ -2,10 +2,12 @@ package ratelimit
 
 import (
 	"context"
-	"fmt"
+	"errors"
 	"sync/atomic"
 	"time"
 )
+
+var ErrLimiterClosed = errors.New("rate limiter is closed")
 
 // Limiter توکن باکت بهینه با atomic
 type Limiter struct {
@@ -77,7 +79,7 @@ func (l *Limiter) refillLoop() {
 
 func (l *Limiter) Wait(ctx context.Context) error {
 	if l.stopped.Load() {
-		return fmt.Errorf("rate limiter is closed")
+		return ErrLimiterClosed
 	}
 	select {
 	case <-l.tokens:
@@ -89,6 +91,9 @@ func (l *Limiter) Wait(ctx context.Context) error {
 }
 
 func (l *Limiter) TryWait() bool {
+	if l.stopped.Load() {
+		return false
+	}
 	select {
 	case <-l.tokens:
 		return true
@@ -99,6 +104,9 @@ func (l *Limiter) TryWait() bool {
 }
 
 func (l *Limiter) WaitTimeout(timeout time.Duration) bool {
+	if l.stopped.Load() {
+		return false
+	}
 	timer := time.NewTimer(timeout)
 	defer timer.Stop()
 	select {
@@ -119,4 +127,32 @@ func (l *Limiter) Close() {
 	if l.stopped.CompareAndSwap(false, true) {
 		close(l.stop)
 	}
+}
+
+// ConcurrencyLimiter برای محدود کردن درخواست‌های همزمان (Semaphore)
+// این کلاس Rate Limit را از Concurrency Limit جدا می‌کند
+type ConcurrencyLimiter struct {
+	sem chan struct{}
+}
+
+func NewConcurrencyLimiter(maxConcurrent int) *ConcurrencyLimiter {
+	if maxConcurrent <= 0 {
+		maxConcurrent = 50
+	}
+	return &ConcurrencyLimiter{
+		sem: make(chan struct{}, maxConcurrent),
+	}
+}
+
+func (c *ConcurrencyLimiter) Acquire(ctx context.Context) error {
+	select {
+	case c.sem <- struct{}{}:
+		return nil
+	case <-ctx.Done():
+		return ctx.Err()
+	}
+}
+
+func (c *ConcurrencyLimiter) Release() {
+	<-c.sem
 }
