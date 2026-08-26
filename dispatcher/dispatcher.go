@@ -15,6 +15,11 @@ import (
 type HandlerFunc func(ctx context.Context, update *models.Update)
 type MiddlewareFunc func(next HandlerFunc) HandlerFunc
 
+type dispatchTask struct {
+	ctx    context.Context
+	update *models.Update
+}
+
 type Dispatcher struct {
 	mu              sync.RWMutex
 	handlers        map[string]HandlerFunc
@@ -24,12 +29,11 @@ type Dispatcher struct {
 	middlewares     []MiddlewareFunc
 	fallback        HandlerFunc
 
-	workerPool chan struct{}
-	wg         sync.WaitGroup
-	stopCh     chan struct{}
-	closed     atomic.Bool
+	taskChan chan dispatchTask // Bounded Queue برای کنترل فشار حافظه
+	wg       sync.WaitGroup
+	stopCh   chan struct{}
+	closed   atomic.Bool
 
-	// آمار
 	stats dispatchStats
 }
 
@@ -53,11 +57,56 @@ func New(maxWorkers int) *Dispatcher {
 	if maxWorkers <= 0 {
 		maxWorkers = 200
 	}
-	return &Dispatcher{
+	queueSize := maxWorkers * 10 // یک صف با ظرفیت 10 برابر workers
+
+	d := &Dispatcher{
 		handlers:        make(map[string]HandlerFunc),
 		commandHandlers: make(map[string]HandlerFunc),
-		workerPool:      make(chan struct{}, maxWorkers),
+		taskChan:        make(chan dispatchTask, queueSize),
 		stopCh:          make(chan struct{}),
+	}
+
+	// راه‌اندازی Worker های ثابت
+	for i := 0; i < maxWorkers; i++ {
+		d.wg.Add(1)
+		go d.worker()
+	}
+	return d
+}
+
+// worker حلقه پردازش آپدیت‌ها به صورت ثابت
+func (d *Dispatcher) worker() {
+	defer d.wg.Done()
+	for {
+		select {
+		case task, ok := <-d.taskChan:
+			if !ok {
+				return
+			}
+
+			handler := d.matchHandler(task.update)
+			// ⭐️ اصلاح اینجا:
+			// اگر هندلری ثبت نشده بود، یک هندلر خالی می‌سازیم
+			// تا میدل‌ورها (مثل Gatekeeper) فرصت اجرا پیدا کنند.
+			if handler == nil {
+				handler = func(ctx context.Context, u *models.Update) {}
+			}
+			handler = d.applyMiddlewares(handler)
+
+			// اجرای هندلر با Recovery
+			func() {
+				defer func() {
+					if r := recover(); r != nil {
+						d.stats.totalPanics.Add(1)
+						log.Printf("PANIC recovered in worker: %v\n%s", r, debugStack())
+					}
+				}()
+				handler(task.ctx, task.update)
+			}()
+
+		case <-d.stopCh:
+			return
+		}
 	}
 }
 
@@ -119,48 +168,23 @@ func (d *Dispatcher) Fallback(h HandlerFunc) {
 	d.fallback = h
 }
 
+// Dispatch اضافه کردن تسک به صف (بدون ساخت goroutine نامحدود)
 func (d *Dispatcher) Dispatch(ctx context.Context, update *models.Update) {
 	if d.closed.Load() {
 		return
 	}
 
-	handler := d.matchHandler(update)
-	if handler == nil {
-		return
-	}
-
-	handler = d.applyMiddlewares(handler)
 	d.stats.totalDispatched.Add(1)
 
+	task := dispatchTask{ctx: ctx, update: update}
+
 	select {
-	case d.workerPool <- struct{}{}:
-		d.wg.Add(1)
-		go func() {
-			defer d.wg.Done()
-			defer func() { <-d.workerPool }()
-			defer func() {
-				if r := recover(); r != nil {
-					d.stats.totalPanics.Add(1)
-					log.Printf("PANIC recovered in dispatcher: %v\n%s", r, debugStack())
-				}
-			}()
-			handler(ctx, update)
-		}()
+	case d.taskChan <- task:
+		// با موفقیت در صف قرار گرفت
 	default:
-		// worker pool پر است — پردازش sync در goroutine جدید بدون محدودیت
-		// این از drop کردن آپدیت‌ها جلوگیری می‌کند
+		// صف پر است! (Drop Policy برای جلوگیری از فرو ریختن سرور)
 		d.stats.totalDropped.Add(1)
-		d.wg.Add(1)
-		go func() {
-			defer d.wg.Done()
-			defer func() {
-				if r := recover(); r != nil {
-					d.stats.totalPanics.Add(1)
-					log.Printf("PANIC (overflow): %v", r)
-				}
-			}()
-			handler(ctx, update)
-		}()
+		log.Println("WARNING: Dispatcher queue is full, update dropped")
 	}
 }
 
@@ -256,7 +280,6 @@ func (d *Dispatcher) OnRegex(pattern string, h func(ctx context.Context, msg *mo
 	return nil
 }
 
-// Stats آمار dispatcher
 func (d *Dispatcher) Stats() (dispatched, dropped, panics int64) {
 	return d.stats.totalDispatched.Load(),
 		d.stats.totalDropped.Load(),
