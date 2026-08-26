@@ -22,12 +22,19 @@ type item struct {
 }
 
 func New(ttl time.Duration) *Cache {
+	return newCacheInternal(ttl, true)
+}
+
+// newCacheInternal ساخت کش با قابلیت کنترل راه‌اندازی Goroutine پاکسازی
+func newCacheInternal(ttl time.Duration, startCleanup bool) *Cache {
 	c := &Cache{
 		items: make(map[string]*item),
 		ttl:   ttl,
 		stop:  make(chan struct{}),
 	}
-	go c.cleanupLoop()
+	if startCleanup {
+		go c.cleanupLoop()
+	}
 	return c
 }
 
@@ -40,7 +47,6 @@ func (c *Cache) Get(key string) (interface{}, bool) {
 	}
 	if !it.expiresAt.IsZero() && time.Now().After(it.expiresAt) {
 		c.mu.Lock()
-		// دوباره چک می‌کنیم تا Race Condition نباشد
 		if it, ok := c.items[key]; ok && !it.expiresAt.IsZero() && time.Now().After(it.expiresAt) {
 			delete(c.items, key)
 		}
@@ -89,7 +95,7 @@ func (c *Cache) SetForever(key string, value interface{}) {
 	defer c.mu.Unlock()
 	c.items[key] = &item{
 		value:     value,
-		expiresAt: time.Time{}, // Zero value means no expiry
+		expiresAt: time.Time{},
 		ttl:       0,
 	}
 }
@@ -122,14 +128,12 @@ func (c *Cache) Clear() {
 	c.items = make(map[string]*item)
 }
 
-// GetOrSet اصلاح شده با singleflight برای جلوگیری از Cache Stampede
 func (c *Cache) GetOrSet(key string, fn func() interface{}) interface{} {
 	if v, ok := c.Get(key); ok {
 		return v
 	}
 
 	v, _, _ := c.sf.Do(key, func() (interface{}, error) {
-		// دوباره چک می‌کنیم شاید در حالت caricature قبلا ست شده باشد
 		if v, ok := c.Get(key); ok {
 			return v, nil
 		}
@@ -188,18 +192,26 @@ func (c *Cache) Close() {
 	}
 }
 
+// ShardedCache با Central Scheduler برای کاهش Goroutineها
 type ShardedCache struct {
 	shards []*Cache
+	stop   chan struct{}
 }
 
 func NewSharded(shards int, ttl time.Duration) *ShardedCache {
 	if shards <= 0 {
 		shards = 32
 	}
-	s := &ShardedCache{shards: make([]*Cache, shards)}
-	for i := range s.shards {
-		s.shards[i] = New(ttl)
+	s := &ShardedCache{
+		shards: make([]*Cache, shards),
+		stop:   make(chan struct{}),
 	}
+	// ساخت Shard ها بدون Goroutine اختصاصی
+	for i := range s.shards {
+		s.shards[i] = newCacheInternal(ttl, false)
+	}
+	// یک Goroutine مرکزی برای پاکسازی همه Shardها
+	go s.cleanupLoop()
 	return s
 }
 
@@ -242,9 +254,28 @@ func (s *ShardedCache) Clear() {
 		c.Clear()
 	}
 }
+
+// Central Scheduler برای پاکسازی دوره‌ای
+func (s *ShardedCache) cleanupLoop() {
+	ticker := time.NewTicker(time.Minute)
+	defer ticker.Stop()
+	for {
+		select {
+		case <-ticker.C:
+			for _, c := range s.shards {
+				c.cleanup()
+			}
+		case <-s.stop:
+			return
+		}
+	}
+}
+
 func (s *ShardedCache) Close() {
-	for _, c := range s.shards {
-		c.Close()
+	select {
+	case <-s.stop:
+	default:
+		close(s.stop)
 	}
 }
 
