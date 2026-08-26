@@ -12,7 +12,6 @@ import (
 	"unsafe"
 )
 
-// Level سطح لاگ
 type Level int
 
 const (
@@ -26,12 +25,14 @@ const (
 // ANSI Color Codes
 const (
 	ColorReset  = "\033[0m"
+	ColorBold   = "\033[1m"
 	ColorRed    = "\033[31m"
 	ColorGreen  = "\033[32m"
 	ColorYellow = "\033[33m"
 	ColorBlue   = "\033[34m"
 	ColorPurple = "\033[35m"
 	ColorCyan   = "\033[36m"
+	ColorWhite  = "\033[37m"
 	ColorGray   = "\033[90m"
 )
 
@@ -40,35 +41,34 @@ func (l Level) String() string {
 	case LevelDebug:
 		return "DEBUG"
 	case LevelInfo:
-		return "INFO"
+		return "INFO "
 	case LevelWarn:
-		return "WARN"
+		return "WARN "
 	case LevelError:
 		return "ERROR"
 	case LevelFatal:
 		return "FATAL"
 	}
-	return "?"
+	return "?    "
 }
 
-// ColorString نمایش رنگی سطح لاگ برای ترمینال
+// ColorString سطح لاگ را با رنگ مخصوص خودش برمی‌گرداند
 func (l Level) ColorString() string {
 	switch l {
 	case LevelDebug:
 		return ColorGray + l.String() + ColorReset
 	case LevelInfo:
-		return ColorGreen + l.String() + ColorReset
+		return ColorCyan + l.String() + ColorReset
 	case LevelWarn:
 		return ColorYellow + l.String() + ColorReset
 	case LevelError:
 		return ColorRed + l.String() + ColorReset
 	case LevelFatal:
-		return ColorPurple + l.String() + ColorReset
+		return ColorBold + ColorRed + l.String() + ColorReset
 	}
 	return l.String()
 }
 
-// Format فرمت لاگ
 type Format int
 
 const (
@@ -76,7 +76,6 @@ const (
 	FormatJSON
 )
 
-// Logger لاگر ساختاریافته
 type Logger struct {
 	mu     sync.Mutex
 	level  Level
@@ -107,13 +106,17 @@ func enableWindowsANSI() {
 
 	r, _, _ := procGetConsoleMode.Call(uintptr(stdoutHandle), uintptr(unsafe.Pointer(&mode)))
 	if r != 0 {
-		mode |= 0x0004 // ENABLE_VIRTUAL_TERMINAL_PROCESSING
+		// ENABLE_VIRTUAL_TERMINAL_PROCESSING (0x0004)
+		mode |= 0x0004
 		procSetConsoleMode.Call(uintptr(stdoutHandle), uintptr(mode))
 	}
 }
 
 func init() {
-	enableWindowsANSI()
+	// در ویندوز رنگ‌ها را فعال کن، در لینوکس و مک نیازی به این کار نیست
+	if runtime.GOOS == "windows" {
+		enableWindowsANSI()
+	}
 }
 
 func New(level Level) *Logger {
@@ -164,6 +167,9 @@ func (l *Logger) SetFormat(format Format) {
 }
 
 func (l *Logger) WithFields(fields ...interface{}) *Logger {
+	if len(fields)%2 != 0 {
+		fields = append(fields, "<MISSING_VALUE>")
+	}
 	newLogger := &Logger{
 		level:  l.level,
 		format: l.format,
@@ -221,18 +227,42 @@ func (l *Logger) write(e logEntry) {
 	}
 }
 
+// writeText لاگ‌های متنی رنگی و خفن
 func (l *Logger) writeText(e logEntry, fields []interface{}) {
-	// استفاده از ColorString برای رنگ‌بندی سطح لاگ
-	fmt.Fprintf(l.out, "[%s] %s %s", e.ts.Format(time.RFC3339), e.level.ColorString(), e.msg)
+	// رنگ‌آمیزی پیام اصلی بر اساس سطح لاگ
+	msgColor := ColorReset
+	switch e.level {
+	case LevelInfo:
+		msgColor = ColorGreen
+	case LevelWarn:
+		msgColor = ColorYellow
+	case LevelError:
+		msgColor = ColorRed
+	case LevelFatal:
+		msgColor = ColorBold + ColorRed
+	case LevelDebug:
+		msgColor = ColorGray
+	}
+
+	// زمان به رنگ خاکستری
+	timeStr := fmt.Sprintf("%s[%s]%s", ColorGray, e.ts.Format("2006-01-02 15:04:05"), ColorReset)
+
+	// چاپ بخش اصلی لاگ
+	fmt.Fprintf(l.out, "%s %s %s%s%s", timeStr, e.level.ColorString(), msgColor, e.msg, ColorReset)
+
+	// چاپ فیلدها (key=value) با رنگ‌های متفاوت
 	if len(fields) > 0 {
 		fmt.Fprint(l.out, " ")
 		for i := 0; i+1 < len(fields); i += 2 {
-			fmt.Fprintf(l.out, "%v=%v ", fields[i], fields[i+1])
+			fmt.Fprintf(l.out, "%s%v%s=%s%v%s ", ColorBlue, fields[i], ColorReset, ColorPurple, fields[i+1], ColorReset)
 		}
 	}
+
+	// اطلاعات فایل و خط برنامه در رنگ خاکستری روشن
 	if e.file != "" {
-		fmt.Fprintf(l.out, " (%s:%d)", shortFile(e.file), e.line)
+		fmt.Fprintf(l.out, "%s(%s:%d)%s", ColorGray, shortFile(e.file), e.line, ColorReset)
 	}
+
 	fmt.Fprintln(l.out)
 }
 
