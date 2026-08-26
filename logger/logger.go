@@ -7,6 +7,7 @@ import (
 	"os"
 	"runtime"
 	"sync"
+	"sync/atomic"
 	"syscall"
 	"time"
 	"unsafe"
@@ -22,7 +23,6 @@ const (
 	LevelFatal
 )
 
-// ANSI Color Codes
 const (
 	ColorReset  = "\033[0m"
 	ColorBold   = "\033[1m"
@@ -52,7 +52,6 @@ func (l Level) String() string {
 	return "?    "
 }
 
-// ColorString سطح لاگ را با رنگ مخصوص خودش برمی‌گرداند
 func (l Level) ColorString() string {
 	switch l {
 	case LevelDebug:
@@ -77,14 +76,16 @@ const (
 )
 
 type Logger struct {
-	mu     sync.Mutex
-	level  Level
-	format Format
-	out    io.Writer
-	fields []interface{}
-	async  bool
-	logCh  chan logEntry
-	wg     sync.WaitGroup
+	mu            sync.Mutex
+	level         atomic.Int32
+	format        Format
+	out           io.Writer
+	fields        []interface{}
+	async         bool
+	logCh         chan logEntry
+	wg            sync.WaitGroup
+	includeCaller atomic.Bool
+	enabled       atomic.Bool // قابلیت استپ و استارت لاگ‌ها
 }
 
 type logEntry struct {
@@ -96,7 +97,6 @@ type logEntry struct {
 	line   int
 }
 
-// enableWindowsANSI فعال‌سازی رنگ‌ها در ترمینال ویندوز
 func enableWindowsANSI() {
 	var mode uint32
 	stdoutHandle := syscall.Handle(os.Stdout.Fd())
@@ -106,46 +106,67 @@ func enableWindowsANSI() {
 
 	r, _, _ := procGetConsoleMode.Call(uintptr(stdoutHandle), uintptr(unsafe.Pointer(&mode)))
 	if r != 0 {
-		// ENABLE_VIRTUAL_TERMINAL_PROCESSING (0x0004)
 		mode |= 0x0004
 		procSetConsoleMode.Call(uintptr(stdoutHandle), uintptr(mode))
 	}
 }
 
 func init() {
-	// در ویندوز رنگ‌ها را فعال کن، در لینوکس و مک نیازی به این کار نیست
 	if runtime.GOOS == "windows" {
 		enableWindowsANSI()
 	}
 }
 
 func New(level Level) *Logger {
-	return &Logger{
-		level:  level,
+	l := &Logger{
 		format: FormatText,
 		out:    os.Stdout,
 	}
+	l.level.Store(int32(level))
+	l.includeCaller.Store(true)
+	l.enabled.Store(true) // پیش‌فرض لاگ‌ها روشن است
+	return l
 }
 
 func NewJSON(level Level) *Logger {
-	return &Logger{
-		level:  level,
+	l := &Logger{
 		format: FormatJSON,
 		out:    os.Stdout,
 	}
+	l.level.Store(int32(level))
+	l.includeCaller.Store(true)
+	l.enabled.Store(true)
+	return l
 }
 
 func NewAsync(level Level, bufferSize int) *Logger {
 	l := &Logger{
-		level:  level,
 		format: FormatText,
 		out:    os.Stdout,
 		async:  true,
 		logCh:  make(chan logEntry, bufferSize),
 	}
+	l.level.Store(int32(level))
+	l.includeCaller.Store(true)
+	l.enabled.Store(true)
 	l.wg.Add(1)
 	go l.asyncWriter()
 	return l
+}
+
+// SetIncludeCaller برای کنترل خاموش/روشن کردن گرفتن اطلاعات فایل
+func (l *Logger) SetIncludeCaller(b bool) {
+	l.includeCaller.Store(b)
+}
+
+// SetEnabled برای استپ و استارت کردن لاگ‌ها از بیرون
+func (l *Logger) SetEnabled(b bool) {
+	l.enabled.Store(b)
+}
+
+// IsEnabled بررسی وضعیت روشن یا خاموش بودن لاگ‌ها
+func (l *Logger) IsEnabled() bool {
+	return l.enabled.Load()
 }
 
 func (l *Logger) SetOutput(w io.Writer) {
@@ -155,9 +176,7 @@ func (l *Logger) SetOutput(w io.Writer) {
 }
 
 func (l *Logger) SetLevel(level Level) {
-	l.mu.Lock()
-	defer l.mu.Unlock()
-	l.level = level
+	l.level.Store(int32(level))
 }
 
 func (l *Logger) SetFormat(format Format) {
@@ -171,20 +190,36 @@ func (l *Logger) WithFields(fields ...interface{}) *Logger {
 		fields = append(fields, "<MISSING_VALUE>")
 	}
 	newLogger := &Logger{
-		level:  l.level,
 		format: l.format,
 		out:    l.out,
 		fields: append(append([]interface{}{}, l.fields...), fields...),
+	}
+	newLogger.level.Store(l.level.Load())
+	newLogger.includeCaller.Store(l.includeCaller.Load())
+	newLogger.enabled.Store(l.enabled.Load())
+	if l.async {
+		newLogger.async = true
+		newLogger.logCh = l.logCh
 	}
 	return newLogger
 }
 
 func (l *Logger) log(level Level, msg string, fields ...interface{}) {
-	if level < l.level {
+	// اگر لاگ‌ها خاموش بودند، هیچ چیزی پردازش نکن
+	if !l.enabled.Load() {
 		return
 	}
 
-	_, file, line, _ := runtime.Caller(2)
+	if int32(level) < l.level.Load() {
+		return
+	}
+
+	var file string
+	var line int
+
+	if l.includeCaller.Load() {
+		_, file, line, _ = runtime.Caller(2)
+	}
 
 	if l.async {
 		f := make([]interface{}, len(fields))
@@ -227,9 +262,7 @@ func (l *Logger) write(e logEntry) {
 	}
 }
 
-// writeText لاگ‌های متنی رنگی و خفن
 func (l *Logger) writeText(e logEntry, fields []interface{}) {
-	// رنگ‌آمیزی پیام اصلی بر اساس سطح لاگ
 	msgColor := ColorReset
 	switch e.level {
 	case LevelInfo:
@@ -244,13 +277,9 @@ func (l *Logger) writeText(e logEntry, fields []interface{}) {
 		msgColor = ColorGray
 	}
 
-	// زمان به رنگ خاکستری
 	timeStr := fmt.Sprintf("%s[%s]%s", ColorGray, e.ts.Format("2006-01-02 15:04:05"), ColorReset)
-
-	// چاپ بخش اصلی لاگ
 	fmt.Fprintf(l.out, "%s %s %s%s%s", timeStr, e.level.ColorString(), msgColor, e.msg, ColorReset)
 
-	// چاپ فیلدها (key=value) با رنگ‌های متفاوت
 	if len(fields) > 0 {
 		fmt.Fprint(l.out, " ")
 		for i := 0; i+1 < len(fields); i += 2 {
@@ -258,7 +287,6 @@ func (l *Logger) writeText(e logEntry, fields []interface{}) {
 		}
 	}
 
-	// اطلاعات فایل و خط برنامه در رنگ خاکستری روشن
 	if e.file != "" {
 		fmt.Fprintf(l.out, "%s(%s:%d)%s", ColorGray, shortFile(e.file), e.line, ColorReset)
 	}
@@ -307,7 +335,12 @@ func (l *Logger) Fatal(msg string, fields ...interface{}) {
 
 func (l *Logger) Close() {
 	if l.async {
-		close(l.logCh)
+		l.mu.Lock()
+		if l.logCh != nil {
+			close(l.logCh)
+			l.logCh = nil
+		}
+		l.mu.Unlock()
 		l.wg.Wait()
 	}
 }
