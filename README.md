@@ -10,7 +10,6 @@
 [![Go Reference](https://img.shields.io/badge/go-reference-00ADD8?style=for-the-badge&logo=go)](https://pkg.go.dev/github.com/AbolfazlZarei-dev/codemeet-go)
 [![Release](https://img.shields.io/github/v/release/AbolfazlZarei-dev/codemeet-go?style=for-the-badge&logo=github&color=blue)]()
 [![License](https://img.shields.io/github/license/AbolfazlZarei-dev/codemeet-go?style=for-the-badge&color=green)]()
-[![SLSA 3](https://img.shields.io/badge/SLSA-Level%203-brightgreen?style=for-the-badge&logo=security)]()
 [![CodeMeet](https://img.shields.io/badge/CodeMeet-Official-7B2FBE?style=for-the-badge&logo=telegram)](https://codemeet.chat)
 
 </div>
@@ -22,15 +21,15 @@
 - [✨ ویژگی‌های کلیدی](#-ویژگی‌های-کلیدی)
 - [📦 نصب و راه‌اندازی](#-نصب-و-راه‌اندازی)
 - [🚀 شروع سریع (Quick Start)](#-شروع-سریع-quick-start)
+- [🛡 سیستم امنیتی (ضد اسپم و ضد لینک)](#-سیستم-امنیتی-ضد-اسپم-و-ضد-لینک)
 - [🛠 ساختار پکیج‌ها](#-ساختار-پکیج‌ها)
-- [📚 مستندات جامع](#-مستندات-جامع)
-- [🔐 امنیت و SLSA](#-امنیت-و-slsa)
+- [📊 داشبورد مانیتورینگ](#-داشبورد-مانیتورینگ)
 - [🤝 مشارکت و سازنده](#-مشارکت-و-سازنده)
 
 ---
 
 ## 📌 معرفی کتابخانه
-این کتابخانه با تمرکز بر **عملکرد بالا (High Performance)**، ایمنی در کانکارنسی (Concurrency) و معماری ماژولار طراحی شده است. اگر به دنبال ساخت ربات‌های پرمصرف، سریع و مقیاس‌پذیر در پلتفرم کدمیت هستید، این SDK تمام نیازهای زیرساختی شما را پوشش می‌دهد.
+این کتابخانه با تمرکز بر **عملکرد بالا (High Performance)**، ایمنی در کانکارنسی (Concurrency) و معماری ماژولار طراحی شده است. اگر به دنبال ساخت ربات‌های پرمصرف، سریع و مقیاس‌پذیر در پلتفرم کدمیت هستید، این SDK تمام نیازهای زیرساختی شما را پوشش می‌دهد. این کتابخانه با استفاده از تکنیک‌هایی مانند `sync.Pool` و `Sharded Maps` کمترین فشار را روی رم و CPU وارد می‌کند.
 
 ---
 
@@ -42,9 +41,9 @@
 | 🛡 **پایداری و پوشش خطا** | Circuit Breaker، Automatic Retry | پیشگیری از قطعی سرور، تلاش مجدد هوشمند با Exponential Backoff و Jitter. |
 | ⚡ **کنترل ترافیک** | Rate Limiter (Token Bucket) | جلوگیری دقیق از خطای `429 Too Many Requests` با صف‌بندی درخواست‌ها. |
 | ⚙️ **پردازش همزمان** | Dispatcher & Worker Pool | مسیریاب مرکزی، پردازش همزمان آپدیت‌ها و پشتیبانی کامل از Middlewares. |
-| 📊 **مانیتورینگ و لاگ** | Web Dashboard، Live Logs | رابط کاربری گرافیکی برای مشاهده آمار، سرعت و لاگ‌های زنده ربات. |
 | 💾 **مدیریت حافظه** | Sharded In-Memory Cache | کش بسیار سریع با TTL و بخش‌بندی شده (Sharded) برای کاهش Lock Contention. |
-| 🔌 **ارتباط بلادرنگ** | WebSocket Hub | مدیریت اتصالات Real-time بدون نیاز به Polling مداوم. |
+| 🛡 **امنیت ربات** | Anti-Spam & Anti-Link Engine | تشخیص هوشمند فلود، کلمات ممنوعه، لینک‌های تبلیغاتی و بن خودکار کاربران. |
+| 📊 **مانیتورینگ و لاگ** | Web Dashboard، Live Logs | رابط کاربری گرافیکی برای مشاهده آمار، سرعت و لاگ‌های رنگی زنده ربات. |
 
 ---
 
@@ -68,18 +67,19 @@ import (
 	"context"
 	"fmt"
 	"log"
-	"os"
 	"os/signal"
+	"syscall"
 
-	"github.com/AbolfazlZarei-dev/codemeet-go"
+	"github.com/AbolfazlZarei-dev/codemeet-go/codemeet"
 	"github.com/AbolfazlZarei-dev/codemeet-go/models"
+	"github.com/AbolfazlZarei-dev/codemeet-go/polling"
 )
 
 func main() {
 	token := "YOUR_BOT_TOKEN"
 	
 	// مدیریت سیگنال‌های سیستم برای توقف امن ربات
-	ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt)
+	ctx, cancel := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 	defer cancel()
 
 	// ساخت ربات با تنظیمات پیش‌فرض بهینه
@@ -87,27 +87,62 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
+	defer bot.Close()
 
 	// هندلر پیام‌های متنی
 	bot.OnMessage(func(ctx context.Context, msg *models.Message) {
 		fmt.Printf("📥 پیام از %s: %s\n", msg.From.FullName(), msg.Text)
 		
 		// ارسال پاسخ به کاربر
-		_, _ = bot.Send(ctx, msg.Chat.ID, "👋 سلام! پیام شما دریافت شد.")
+		bot.Reply(ctx, msg, "👋 سلام! پیام شما دریافت شد.")
 	})
 
 	// هندلر دستور /start
 	bot.OnCommand("start", func(ctx context.Context, msg *models.Message) {
-		_, _ = bot.SendHTML(ctx, msg.Chat.ID, "<b>🤖 ربات با موفقیت استارت شد!</b>")
+		bot.SendHTML(ctx, msg.Chat.ID, "<b>🤖 ربات با موفقیت استارت شد!</b>")
 	})
 
 	fmt.Println("🚀 ربات در حال اجراست... (Ctrl+C برای خروج)")
 	
-	// شروع دریافت رویدادها
-	if err := bot.StartPolling(ctx, codemeet.DefaultConfig()); err != nil {
+	// شروع دریافت رویدادها با Long Polling
+	pollingCfg := polling.DefaultConfig()
+	pollingCfg.Timeout = 20
+	
+	if err := bot.StartPolling(ctx, pollingCfg); err != nil {
 		log.Fatal(err)
 	}
 }
+```
+
+---
+
+## 🛡 سیستم امنیتی (ضد اسپم و ضد لینک)
+
+این کتابخانه دارای پکیج‌های مستقل و قدرتمند برای امنیت ربات شماست که به صورت اختیاری ایمپورت می‌شوند:
+
+### ۱. سیستم ضد اسپم (`contrib/antispam`)
+تشخیص فلود، کلمات ممنوعه، محدودیت نرخ پیام کاربران، اخطار خودکار و در نهایت بن کردن موقت یا دائمی کاربر متخلف.
+
+### ۲. سیستم ضد لینک (`contrib/antilink`)
+جلوگیری از ارسال لینک‌های تبلیغاتی (لینک‌های ربات‌های دیگر، لینک‌های دعوت و...) با قابلیت تعریف لیست سفید (Whitelist) برای دامنه‌های مجاز. این سیستم می‌تواند پیام کاربر را به صورت خودکار حذف کند.
+
+```go
+import (
+	"github.com/AbolfazlZarei-dev/codemeet-go/contrib/antispam"
+	"github.com/AbolfazlZarei-dev/codemeet-go/contrib/antilink"
+)
+
+// راه‌اندازی ضد لینک
+linkCfg := antilink.DefaultConfig()
+linkCfg.AllowedDomains = []string{"codemeet.chat"} // لینک‌های مجاز
+linkCfg.Action = func(ctx context.Context, userID, chatID string, messageID int, reason string) {
+    bot.API().Messages().Delete(ctx, chatID, messageID) // حذف پیام
+    bot.Send(ctx, chatID, "⚠️ ارسال لینک مجاز نیست!")
+}
+antiLinkEngine := antilink.New(linkCfg)
+
+// اتصال به ربات
+bot.Use(antiLinkEngine.Middleware())
 ```
 
 ---
@@ -117,41 +152,34 @@ func main() {
 
 ```text
 codemeet-go/
-├── api/          # کلاینت HTTP، مدیریت شبکه، Circuit Breaker و Stats
-├── methods/      # پیاده‌سازی تمام متدهای ربات (Messages, Media, Chat, Webhook, Bot)
-├── models/       # مدل‌های داده‌ای (User, Chat, Message, Keyboards)
-├── dispatcher/   # مسیریاب مرکزی برای ارجاع آپدیت‌ها به هندلرها
-├── middleware/   # میان‌افزارهای آماده (Recovery, Logging, RateLimit, Metrics)
-├── ratelimit/    # محدودیت نرخ توکن‌محور
-├── retry/        # سیاست‌های تلاش مجدد
-├── cache/        # کش درون‌حافظه‌ای و Sharded Cache
-├── polling/      # دریافت آپدیت با Long Polling
-├── webhook/      # سرور وب‌هوک امن
-└── ws/           # مدیریت اتصالات WebSocket
+├── api/           # کلاینت HTTP، مدیریت شبکه، Circuit Breaker و Stats
+├── methods/       # پیاده‌سازی تمام متدهای ربات (Messages, Media, Chat, Webhook, Bot)
+├── models/        # مدل‌های داده‌ای (User, Chat, Message, Keyboards)
+├── dispatcher/    # مسیریاب مرکزی برای ارجاع آپدیت‌ها به هندلرها
+├── middleware/    # میان‌افزارهای آماده (Recovery, Logging, RateLimit, Metrics)
+├── contrib/       # پکیج‌های کمکی و مستقل (antispam, antilink)
+├── ratelimit/     # محدودیت نرخ توکن‌محور (Token Bucket)
+├── retry/         # سیاست‌های تلاش مجدد (Exponential Backoff)
+├── cache/         # کش درون‌حافظه‌ای و Sharded Cache
+├── polling/       # دریافت آپدیت با Long Polling
+├── webhook/       # سرور وب‌هوک امن
+├── logger/        # لاگر رنگی و سریع با پشتیبانی از JSON
+└── errors/        # مدیریت خطاها و کدهای وضعیت HTTP
 ```
 
 ---
 
-## 📚 مستندات جامع
-برای راهنمای دقیق و کاربردی هر بخش، روی دکمه‌های زیر کلیک کنید:
+## 📊 داشبورد مانیتورینگ
+با استفاده از تابع `StartDashboard`، یک سرور وب سبک روی پورت دلخواه شما اجرا می‌شود که آمار دقیق درخواست‌ها، وضعیت سیستم و لاگ‌های زنده و رنگی را در یک رابط کاربری گرافیکی مدرن نمایش می‌دهد.
 
-<table>
-  <tr>
-    <td align="center"><a href="README/01_Getting_Started.md">1️⃣ شروع به کار و پیکربندی</a></td>
-    <td align="center"><a href="README/02_Messages_and_Media.md">2️⃣ مدیریت پیام‌ها و رسانه‌ها</a></td>
-    <td align="center"><a href="README/03_Updates_Polling_Webhook.md">3️⃣ دریافت رویدادها</a></td>
-  </tr>
-  <tr>
-    <td align="center"><a href="README/04_Chat_Management.md">4️⃣ مدیریت گروه‌ها و کانال‌ها</a></td>
-    <td align="center"><a href="README/05_Bot_Profile_and_Commands.md">5️⃣ تنظیمات بات و دستورات</a></td>
-    <td align="center"><a href="README/06_Advanced_Features.md">6️⃣ قابلیت‌های پیشرفته</a></td>
-  </tr>
-</table>
-
----
-
-## 🔐 امنیت و SLSA
-این پروژه با استفاده از استانداردهای **SLSA (Supply-chain Levels for Software Artifacts)** توسعه و انتشار می‌یابد. فایل‌های باینری و خروجی‌های هر Release به‌صورت خودکار توسط GitHub Actions تولید شده‌اند و دارای گواهی Provenance برای تایید اصالت و امنیت زنجیره تامین (Supply Chain) هستند.
+```go
+go func() {
+    dashCtx, cancel := context.WithCancel(context.Background())
+    defer cancel()
+    bot.StartDashboard(dashCtx, ":9090")
+}()
+```
+سپس به آدرس `http://localhost:9090` بروید.
 
 ---
 
