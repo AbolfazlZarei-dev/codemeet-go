@@ -1,5 +1,114 @@
 package codemeet
 
+const loginHTML = `<!DOCTYPE html>
+<html lang="en" dir="ltr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Login - CodeMeet Dashboard</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            background-color: #0b1120;
+            background-image: radial-gradient(circle at top right, rgba(59, 130, 246, 0.1), transparent 40%), radial-gradient(circle at bottom left, rgba(139, 92, 246, 0.1), transparent 40%);
+            color: #f1f5f9;
+            font-family: 'Inter', 'Segoe UI', sans-serif;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+        }
+        .login-card {
+            background: rgba(30, 41, 59, 0.6);
+            padding: 40px;
+            border-radius: 20px;
+            width: 100%;
+            max-width: 400px;
+            text-align: center;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.4);
+            backdrop-filter: blur(12px);
+            border: 1px solid rgba(51, 65, 85, 0.5);
+        }
+        .login-card h1 { 
+            margin: 0 0 10px 0; 
+            font-size: 28px; 
+            color: #3b82f6; 
+        }
+        .login-card p { 
+            margin: 0 0 30px 0; 
+            color: #94a3b8; 
+            font-size: 14px;
+        }
+        .input-group {
+            position: relative;
+            margin-bottom: 20px;
+        }
+        .input-group i {
+            position: absolute;
+            left: 15px;
+            top: 50%;
+            transform: translateY(-50%);
+            color: #94a3b8;
+        }
+        .input-group input {
+            width: 100%;
+            padding: 15px 20px 15px 45px;
+            border-radius: 10px;
+            border: 1px solid #334155;
+            background: #0f172a;
+            color: #f1f5f9;
+            box-sizing: border-box;
+            outline: none;
+            transition: all 0.2s;
+            font-size: 14px;
+        }
+        .input-group input:focus {
+            border-color: #3b82f6;
+            box-shadow: 0 0 10px rgba(59, 130, 246, 0.4);
+        }
+        .btn-login {
+            width: 100%;
+            padding: 15px;
+            background: linear-gradient(135deg, #3b82f6, #8b5cf6);
+            border: none;
+            color: white;
+            border-radius: 10px;
+            font-weight: 700;
+            font-size: 16px;
+            cursor: pointer;
+            transition: all 0.2s;
+            margin-top: 10px;
+        }
+        .btn-login:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 15px rgba(59, 130, 246, 0.4);
+        }
+    </style>
+</head>
+<body>
+    <div class="login-card">
+        <h1><i class="fas fa-shield-halved"></i> Login</h1>
+        <p>Access to CodeMeet Dashboard is restricted. Please login.</p>
+        {{ERR_MSG}}
+        <form method="POST" action="/login">
+            <div class="input-group">
+                <i class="fas fa-user"></i>
+                <input type="text" name="username" placeholder="Username" required autofocus>
+            </div>
+            <div class="input-group">
+                <i class="fas fa-key"></i>
+                <input type="password" name="password" placeholder="Password" required>
+            </div>
+            <button type="submit" class="btn-login">Login</button>
+        </form>
+    </div>
+</body>
+</html>`
+
 const dashboardHTML = `<!DOCTYPE html>
 <html lang="en" dir="ltr">
 <head>
@@ -218,6 +327,9 @@ const dashboardHTML = `<!DOCTYPE html>
                 <button class="theme-toggle" onclick="toggleTheme()" title="Toggle Theme">
                     <i class="fas fa-moon" id="theme-icon"></i>
                 </button>
+                <button class="theme-toggle" onclick="window.location.href='/logout'" title="Logout" style="color: var(--error-color);">
+                    <i class="fas fa-right-from-bracket"></i>
+                </button>
                 <div class="status-indicator">
                     <div class="dot"></div>
                     <i class="fas fa-bolt"></i>
@@ -364,6 +476,9 @@ const dashboardHTML = `<!DOCTYPE html>
                         <button class="btn-action" id="pause-btn" onclick="togglePause()" title="Pause Scroll">
                             <i class="fas fa-pause"></i>
                         </button>
+                        <button class="btn-action" id="toggle-log-btn" onclick="toggleLogs()" title="Start/Stop Logging" style="color: var(--error-color);">
+                            <i class="fas fa-stop"></i> Stop Logs
+                        </button>
                         <button class="btn-action" onclick="copyLogs()" title="Copy All Logs">
                             <i class="fas fa-copy"></i> <span id="t-copy">Copy</span>
                         </button>
@@ -384,6 +499,7 @@ const dashboardHTML = `<!DOCTYPE html>
         };
 
         let isPaused = false;
+        let logsEnabled = true;
 
         function applyLanguage(lang) {
             const t = translations[lang] || translations.en;
@@ -416,6 +532,25 @@ const dashboardHTML = `<!DOCTYPE html>
             const btn = document.getElementById('pause-btn');
             btn.innerHTML = isPaused ? '<i class="fas fa-play"></i>' : '<i class="fas fa-pause"></i>';
             btn.style.color = isPaused ? 'var(--warn-color)' : 'var(--text-color)';
+        }
+
+        async function toggleLogs() {
+            try {
+                const res = await fetch('/api/logs/toggle');
+                const data = await res.json();
+                logsEnabled = data.enabled;
+                const btn = document.getElementById('toggle-log-btn');
+                if (logsEnabled) {
+                    btn.innerHTML = '<i class="fas fa-stop"></i> Stop Logs';
+                    btn.style.color = 'var(--error-color)';
+                } else {
+                    btn.innerHTML = '<i class="fas fa-play"></i> Resume Logs';
+                    btn.style.color = 'var(--success-color)';
+                }
+                fetchLogs(); // Fetch immediately to see the toggle message
+            } catch (e) {
+                console.error('Error toggling logs:', e);
+            }
         }
 
         function showToast(message) {
@@ -492,6 +627,17 @@ const dashboardHTML = `<!DOCTYPE html>
                     featuresDiv.appendChild(tag);
                 });
 
+                // Sync log button state
+                logsEnabled = info.logs_enabled;
+                const btn = document.getElementById('toggle-log-btn');
+                if (logsEnabled) {
+                    btn.innerHTML = '<i class="fas fa-stop"></i> Stop Logs';
+                    btn.style.color = 'var(--error-color)';
+                } else {
+                    btn.innerHTML = '<i class="fas fa-play"></i> Resume Logs';
+                    btn.style.color = 'var(--success-color)';
+                }
+
                 const statsRes = await fetch('/api/stats');
                 const stats = await statsRes.json();
                 document.getElementById('stat-requests').innerText = stats.api.Requests || 0;
@@ -521,7 +667,7 @@ const dashboardHTML = `<!DOCTYPE html>
                 
                 filteredLogs.forEach(function(log) {
                     var div = document.createElement('div');
-                    var match = log.match(/^\[(.*?)\]\s+(DEBUG|INFO|WARN |ERROR|FATAL)\s+([\s\S]*)$/);
+                    var match = log.match(/^\[(.*?)\]\s+(DEBUG|INFO |WARN |ERROR|FATAL)\s+([\s\S]*)$/);
                     if (match) {
                         var ts = match[1];
                         var level = match[2].trim();
