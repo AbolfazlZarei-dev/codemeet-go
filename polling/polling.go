@@ -2,6 +2,7 @@ package polling
 
 import (
 	"context"
+	"fmt"
 	"math/rand"
 	"time"
 
@@ -14,7 +15,6 @@ import (
 	"github.com/AbolfazlZarei-dev/codemeet-go/retry"
 )
 
-// Config تنظیمات Long Polling
 type Config struct {
 	Timeout            int
 	PollInterval       time.Duration
@@ -25,10 +25,9 @@ type Config struct {
 	MaxRetries         int
 }
 
-// DefaultConfig تنظیمات پیش‌فرض محتاطانه برای جلوگیری از 429
 func DefaultConfig() Config {
 	return Config{
-		Timeout:            10, // کاهش به 10 ثانیه
+		Timeout:            10,
 		PollInterval:       2 * time.Second,
 		Limit:              100,
 		BufferSize:         1000,
@@ -37,7 +36,6 @@ func DefaultConfig() Config {
 	}
 }
 
-// Poller طولانی‌پولینگ
 type Poller struct {
 	api        *api.Client
 	dispatcher *dispatcher.Dispatcher
@@ -49,7 +47,6 @@ type Poller struct {
 	retries    int
 }
 
-// New ساخت Poller
 func New(c *api.Client, d *dispatcher.Dispatcher, log *logger.Logger, cfg Config) *Poller {
 	defaultRetry := retry.DefaultPolicy()
 	defaultLimit := ratelimit.New(30)
@@ -65,7 +62,6 @@ func New(c *api.Client, d *dispatcher.Dispatcher, log *logger.Logger, cfg Config
 	}
 }
 
-// Start شروع پولینگ
 func (p *Poller) Start(ctx context.Context) error {
 	if p.cfg.DeleteWebhookFirst {
 		if err := p.webhook.DeleteWithDrop(ctx, true); err != nil {
@@ -103,13 +99,18 @@ func (p *Poller) Start(ctx context.Context) error {
 				p.logger.Error("polling error", "error", err, "retry", p.retries)
 			}
 
-			// مدیریت خطای 429 با صبر ۱۵ ثانیه‌ای
 			if apiErr, ok := errors.AsAPIError(err); ok && apiErr.Code == errors.CodeTooManyRequests {
+				wait := time.Duration(apiErr.RetryAfter) * time.Second
+				if wait < 2*time.Second {
+					wait = 2 * time.Second
+				}
+				wait += 500 * time.Millisecond // buffer
+
 				if p.logger != nil {
-					p.logger.Warn("rate limit hit (429), waiting 15 seconds...")
+					p.logger.Warn("rate limit hit (429), waiting...", "wait", wait)
 				}
 				select {
-				case <-time.After(15 * time.Second):
+				case <-time.After(wait):
 				case <-ctx.Done():
 					return ctx.Err()
 				}
@@ -117,7 +118,6 @@ func (p *Poller) Start(ctx context.Context) error {
 				continue
 			}
 
-			// Exponential backoff
 			backoff := time.Duration(p.retries) * time.Second
 			if backoff > 30*time.Second {
 				backoff = 30 * time.Second
@@ -130,7 +130,7 @@ func (p *Poller) Start(ctx context.Context) error {
 			}
 
 			if p.retries > p.cfg.MaxRetries {
-				p.retries = 0
+				return fmt.Errorf("max retries (%d) exceeded: %w", p.cfg.MaxRetries, err)
 			}
 			continue
 		}
@@ -152,8 +152,5 @@ func (p *Poller) Start(ctx context.Context) error {
 	}
 }
 
-// Offset دریافت offset فعلی
-func (p *Poller) Offset() int { return p.offset }
-
-// ResetOffset ریست offset به صفر
+func (p *Poller) Offset() int  { return p.offset }
 func (p *Poller) ResetOffset() { p.offset = 0 }
