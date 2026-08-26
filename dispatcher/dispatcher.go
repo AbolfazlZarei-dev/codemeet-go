@@ -2,32 +2,41 @@ package dispatcher
 
 import (
 	"context"
+	"log"
 	"regexp"
+	"runtime"
 	"strings"
 	"sync"
+	"sync/atomic"
 
 	"github.com/AbolfazlZarei-dev/codemeet-go/models"
 )
 
-// HandlerFunc امضای استاندارد برای تمامی هندلرها
 type HandlerFunc func(ctx context.Context, update *models.Update)
-
-// MiddlewareFunc تابعی که یک هندلر را می‌گیرد و هندلر جدیدی برمی‌گرداند
 type MiddlewareFunc func(next HandlerFunc) HandlerFunc
 
-// Dispatcher مسیریاب مرکزی برای پردازش رویدادهای (Updates) دریافتی از کدمیت.
 type Dispatcher struct {
 	mu              sync.RWMutex
-	handlers        map[string]HandlerFunc // هندلرهای مبتنی بر نوع
-	commandHandlers map[string]HandlerFunc // هندلرهای مبتنی بر دستور
-	regexHandlers   []regexHandler         // هندلرهای مبتنی بر regex
-	textHandlers    []textHandler          // هندلرهای مبتنی بر متن دقیق
-	middlewares     []MiddlewareFunc       // لایه‌های میان‌افزار
-	fallback        HandlerFunc            // هندلر پیش‌فرض
-	workerPool      chan struct{}          // کانال برای محدود کردن Goroutineها
-	wg              sync.WaitGroup         // برای انتظار اتمام Goroutineها
-	stopCh          chan struct{}          // برای توقف کامل دیسپاچر
-	closed          bool
+	handlers        map[string]HandlerFunc
+	commandHandlers map[string]HandlerFunc
+	regexHandlers   []regexHandler
+	textHandlers    []textHandler
+	middlewares     []MiddlewareFunc
+	fallback        HandlerFunc
+
+	workerPool chan struct{}
+	wg         sync.WaitGroup
+	stopCh     chan struct{}
+	closed     atomic.Bool
+
+	// آمار
+	stats dispatchStats
+}
+
+type dispatchStats struct {
+	totalDispatched atomic.Int64
+	totalDropped    atomic.Int64
+	totalPanics     atomic.Int64
 }
 
 type regexHandler struct {
@@ -40,10 +49,9 @@ type textHandler struct {
 	handler HandlerFunc
 }
 
-// New ساخت یک نمونه جدید از Dispatcher
 func New(maxWorkers int) *Dispatcher {
 	if maxWorkers <= 0 {
-		maxWorkers = 100
+		maxWorkers = 200
 	}
 	return &Dispatcher{
 		handlers:        make(map[string]HandlerFunc),
@@ -53,21 +61,18 @@ func New(maxWorkers int) *Dispatcher {
 	}
 }
 
-// Use افزودن میان‌افزارها
 func (d *Dispatcher) Use(mw ...MiddlewareFunc) {
 	d.mu.Lock()
 	defer d.mu.Unlock()
 	d.middlewares = append(d.middlewares, mw...)
 }
 
-// Handle ثبت هندلر برای یک نوع آپدیت
 func (d *Dispatcher) Handle(updateType string, h HandlerFunc) {
 	d.mu.Lock()
 	defer d.mu.Unlock()
 	d.handlers[updateType] = h
 }
 
-// OnMessage ثبت هندلر برای پیام‌های متنی و رسانه‌ای
 func (d *Dispatcher) OnMessage(h func(ctx context.Context, msg *models.Message)) {
 	d.Handle("message", func(ctx context.Context, u *models.Update) {
 		if u.Message != nil {
@@ -76,7 +81,6 @@ func (d *Dispatcher) OnMessage(h func(ctx context.Context, msg *models.Message))
 	})
 }
 
-// OnCallback ثبت هندلر برای کلیک روی دکمه‌های شیشه‌ای
 func (d *Dispatcher) OnCallback(h func(ctx context.Context, cq *models.CallbackQuery)) {
 	d.Handle("callback_query", func(ctx context.Context, u *models.Update) {
 		if u.CallbackQuery != nil {
@@ -85,7 +89,6 @@ func (d *Dispatcher) OnCallback(h func(ctx context.Context, cq *models.CallbackQ
 	})
 }
 
-// OnCommand ثبت هندلر برای دستورات خاص (مثل /start)
 func (d *Dispatcher) OnCommand(cmd string, h func(ctx context.Context, msg *models.Message)) {
 	d.mu.Lock()
 	defer d.mu.Unlock()
@@ -97,7 +100,6 @@ func (d *Dispatcher) OnCommand(cmd string, h func(ctx context.Context, msg *mode
 	}
 }
 
-// OnText ثبت هندلر برای متن دقیق
 func (d *Dispatcher) OnText(text string, h func(ctx context.Context, msg *models.Message)) {
 	d.mu.Lock()
 	defer d.mu.Unlock()
@@ -111,19 +113,15 @@ func (d *Dispatcher) OnText(text string, h func(ctx context.Context, msg *models
 	})
 }
 
-// Fallback ثبت هندلری که در صورت نبود هندلر اختصاصی اجرا می‌شود
 func (d *Dispatcher) Fallback(h HandlerFunc) {
 	d.mu.Lock()
 	defer d.mu.Unlock()
 	d.fallback = h
 }
 
-// Dispatch پردازش و ارسال رویداد به هندلر مربوطه
 func (d *Dispatcher) Dispatch(ctx context.Context, update *models.Update) {
-	select {
-	case <-d.stopCh:
+	if d.closed.Load() {
 		return
-	default:
 	}
 
 	handler := d.matchHandler(update)
@@ -132,37 +130,58 @@ func (d *Dispatcher) Dispatch(ctx context.Context, update *models.Update) {
 	}
 
 	handler = d.applyMiddlewares(handler)
+	d.stats.totalDispatched.Add(1)
 
-	d.wg.Add(1)
-	d.workerPool <- struct{}{}
-
-	go func() {
-		defer d.wg.Done()
-		defer func() { <-d.workerPool }()
-		defer func() {
-			if r := recover(); r != nil {
-				_ = r
-			}
+	select {
+	case d.workerPool <- struct{}{}:
+		d.wg.Add(1)
+		go func() {
+			defer d.wg.Done()
+			defer func() { <-d.workerPool }()
+			defer func() {
+				if r := recover(); r != nil {
+					d.stats.totalPanics.Add(1)
+					log.Printf("PANIC recovered in dispatcher: %v\n%s", r, debugStack())
+				}
+			}()
+			handler(ctx, update)
 		}()
-		handler(ctx, update)
-	}()
+	default:
+		// worker pool پر است — پردازش sync در goroutine جدید بدون محدودیت
+		// این از drop کردن آپدیت‌ها جلوگیری می‌کند
+		d.stats.totalDropped.Add(1)
+		d.wg.Add(1)
+		go func() {
+			defer d.wg.Done()
+			defer func() {
+				if r := recover(); r != nil {
+					d.stats.totalPanics.Add(1)
+					log.Printf("PANIC (overflow): %v", r)
+				}
+			}()
+			handler(ctx, update)
+		}()
+	}
 }
 
-// matchHandler پیدا کردن هندلر مناسب
+func debugStack() string {
+	buf := make([]byte, 4096)
+	n := runtime.Stack(buf, false)
+	return string(buf[:n])
+}
+
 func (d *Dispatcher) matchHandler(update *models.Update) HandlerFunc {
 	updateType := update.Type()
 
 	d.mu.RLock()
 	defer d.mu.RUnlock()
 
-	// ۱. بررسی دستورات (فقط برای پیام‌های متنی)
 	if updateType == "message" && update.Message != nil && update.Message.Text != "" {
 		text := update.Message.Text
 		if strings.HasPrefix(text, "/") {
 			parts := strings.Fields(text)
 			if len(parts) > 0 {
 				cmd := strings.TrimPrefix(parts[0], "/")
-				// پشتیبانی از فرمت /command@bot_username
 				if idx := strings.Index(cmd, "@"); idx != -1 {
 					cmd = cmd[:idx]
 				}
@@ -172,14 +191,12 @@ func (d *Dispatcher) matchHandler(update *models.Update) HandlerFunc {
 			}
 		}
 
-		// ۲. بررسی هندلرهای دقیق متن
 		for _, th := range d.textHandlers {
 			if th.text == text {
 				return th.handler
 			}
 		}
 
-		// ۳. بررسی regex handlers
 		for _, rh := range d.regexHandlers {
 			if rh.pattern.MatchString(text) {
 				return rh.handler
@@ -187,12 +204,10 @@ func (d *Dispatcher) matchHandler(update *models.Update) HandlerFunc {
 		}
 	}
 
-	// ۴. هندلرهای مبتنی بر نوع
 	if h, ok := d.handlers[updateType]; ok {
 		return h
 	}
 
-	// ۵. fallback
 	if d.fallback != nil {
 		return d.fallback
 	}
@@ -200,7 +215,6 @@ func (d *Dispatcher) matchHandler(update *models.Update) HandlerFunc {
 	return nil
 }
 
-// applyMiddlewares اعمال زنجیره middleware
 func (d *Dispatcher) applyMiddlewares(handler HandlerFunc) HandlerFunc {
 	d.mu.RLock()
 	mws := make([]MiddlewareFunc, len(d.middlewares))
@@ -213,22 +227,19 @@ func (d *Dispatcher) applyMiddlewares(handler HandlerFunc) HandlerFunc {
 	return handler
 }
 
-// Stop متدی برای توقف امن
 func (d *Dispatcher) Stop() {
-	d.mu.Lock()
-	if d.closed {
-		d.mu.Unlock()
+	if !d.closed.CompareAndSwap(false, true) {
 		return
 	}
-	d.closed = true
 	close(d.stopCh)
-	d.mu.Unlock()
 	d.wg.Wait()
 }
 
-// OnRegex ثبت هندلر با regex روی متن پیام
-func (d *Dispatcher) OnRegex(pattern string, h func(ctx context.Context, msg *models.Message, matches []string)) {
-	compiled := regexp.MustCompile(pattern)
+func (d *Dispatcher) OnRegex(pattern string, h func(ctx context.Context, msg *models.Message, matches []string)) error {
+	compiled, err := regexp.Compile(pattern)
+	if err != nil {
+		return err
+	}
 	d.mu.Lock()
 	defer d.mu.Unlock()
 	d.regexHandlers = append(d.regexHandlers, regexHandler{
@@ -242,4 +253,12 @@ func (d *Dispatcher) OnRegex(pattern string, h func(ctx context.Context, msg *mo
 			}
 		},
 	})
+	return nil
+}
+
+// Stats آمار dispatcher
+func (d *Dispatcher) Stats() (dispatched, dropped, panics int64) {
+	return d.stats.totalDispatched.Load(),
+		d.stats.totalDropped.Load(),
+		d.stats.totalPanics.Load()
 }
