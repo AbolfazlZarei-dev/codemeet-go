@@ -21,7 +21,6 @@ import (
 	"github.com/google/uuid"
 )
 
-// sync.Pool برای کاهش allocation
 var bufPool = sync.Pool{
 	New: func() interface{} {
 		return new(bytes.Buffer)
@@ -32,6 +31,18 @@ var jsonEncoderPool = sync.Pool{
 	New: func() interface{} {
 		return json.NewEncoder(nil)
 	},
+}
+
+// countReader برای شمارش دقیق بایت‌های خوانده شده
+type countReader struct {
+	io.Reader
+	n int64
+}
+
+func (r *countReader) Read(p []byte) (int, error) {
+	n, err := r.Reader.Read(p)
+	r.n += int64(n)
+	return n, err
 }
 
 type Client struct {
@@ -94,13 +105,14 @@ type StatsSnapshot struct {
 	AvgLatency   time.Duration
 }
 
-// CircuitBreaker پیاده‌سازی بهینه
+// CircuitBreaker پیاده‌سازی بهینه با Single Probe در Half-Open
 type CircuitBreaker struct {
 	failureThreshold int32
 	resetTimeout     time.Duration
 	failures         atomic.Int32
 	lastFailure      atomic.Int64
 	state            atomic.Int32 // 0=closed, 1=open, 2=half-open
+	probeInFlight    atomic.Bool  // فقط یک پروب مجاز است
 }
 
 const (
@@ -117,27 +129,36 @@ func NewCircuitBreaker(threshold int, reset time.Duration) *CircuitBreaker {
 }
 
 func (c *CircuitBreaker) Allow() bool {
-	if c.state.Load() == stateClosed {
+	state := c.state.Load()
+	if state == stateClosed {
 		return true
 	}
-	lastFail := time.Unix(0, c.lastFailure.Load())
-	if time.Since(lastFail) > c.resetTimeout {
-		// half-open
-		// اصلاح اینجا: CompareAndSwap به جای CompareAndSwapInt32
-		if c.state.CompareAndSwap(stateOpen, stateHalfOpen) {
-			return true
+	if state == stateOpen {
+		lastFail := time.Unix(0, c.lastFailure.Load())
+		if time.Since(lastFail) > c.resetTimeout {
+			if c.state.CompareAndSwap(stateOpen, stateHalfOpen) {
+				// فقط یک درخواست Probe اجازه عبور دارد
+				if c.probeInFlight.CompareAndSwap(false, true) {
+					return true
+				}
+			}
 		}
-		return false
 	}
 	return false
 }
 
 func (c *CircuitBreaker) RecordSuccess() {
+	if c.state.Load() == stateHalfOpen {
+		c.probeInFlight.Store(false)
+	}
 	c.failures.Store(0)
 	c.state.Store(stateClosed)
 }
 
 func (c *CircuitBreaker) RecordFailure() {
+	if c.state.Load() == stateHalfOpen {
+		c.probeInFlight.Store(false)
+	}
 	f := c.failures.Add(1)
 	c.lastFailure.Store(time.Now().UnixNano())
 	if f >= c.failureThreshold {
@@ -268,13 +289,12 @@ func (c *Client) doRequest(ctx context.Context, method, url string, body []byte)
 	return resp, nil
 }
 
-// RequestWithParams بهینه‌شده با sync.Pool
+// RequestWithParams بهینه‌شده با Streaming Decode
 func (c *Client) RequestWithParams(ctx context.Context, method string, params interface{}) (*Response, error) {
 	url := c.buildURL(method)
 
 	var body []byte
 	if params != nil {
-		// استفاده از bufPool برای کاهش allocation
 		buf := bufPool.Get().(*bytes.Buffer)
 		buf.Reset()
 		enc := json.NewEncoder(buf)
@@ -283,7 +303,6 @@ func (c *Client) RequestWithParams(ctx context.Context, method string, params in
 			return nil, fmt.Errorf("failed to marshal params: %w", err)
 		}
 		body = buf.Bytes()
-		// کپی کن چون buf برگردانده می‌شود
 		bodyCopy := make([]byte, len(body))
 		copy(bodyCopy, body)
 		bufPool.Put(buf)
@@ -299,17 +318,14 @@ func (c *Client) RequestWithParams(ctx context.Context, method string, params in
 	}
 	defer resp.Body.Close()
 
-	limited := io.LimitReader(resp.Body, 100<<20)
-	data, err := io.ReadAll(limited)
-	if err != nil {
-		c.stats.Record(time.Since(start), false, int64(len(data)), int64(len(body)))
-		return nil, fmt.Errorf("failed to read response: %w", err)
-	}
+	// محدود کردن به 10 مگابایت و استفاده از Streaming Decode برای کاهش RAM
+	limited := io.LimitReader(resp.Body, 10<<20)
+	cr := &countReader{Reader: limited}
 
 	var apiResp Response
-	if err := json.Unmarshal(data, &apiResp); err != nil {
-		c.stats.Record(time.Since(start), false, int64(len(data)), int64(len(body)))
-		return nil, fmt.Errorf("failed to decode response: %w (body: %s)", err, truncate(string(data), 500))
+	if err := json.NewDecoder(cr).Decode(&apiResp); err != nil {
+		c.stats.Record(time.Since(start), false, cr.n, int64(len(body)))
+		return nil, fmt.Errorf("failed to decode response: %w", err)
 	}
 	apiResp.HTTPStatus = resp.StatusCode
 
@@ -320,11 +336,11 @@ func (c *Client) RequestWithParams(ctx context.Context, method string, params in
 				params = m
 			}
 		}
-		c.stats.Record(time.Since(start), false, int64(len(data)), int64(len(body)))
+		c.stats.Record(time.Since(start), false, cr.n, int64(len(body)))
 		return &apiResp, errors.ParseError(resp.StatusCode, apiResp.Description, params)
 	}
 
-	c.stats.Record(time.Since(start), true, int64(len(data)), int64(len(body)))
+	c.stats.Record(time.Since(start), true, cr.n, int64(len(body)))
 	return &apiResp, nil
 }
 
@@ -332,7 +348,7 @@ func (c *Client) Request(ctx context.Context, method string) (*Response, error) 
 	return c.RequestWithParams(ctx, method, nil)
 }
 
-// RequestWithMultipart بهینه‌شده با io.Pipe
+// RequestWithMultipart بهینه‌شده با io.Pipe و Streaming Decode
 func (c *Client) RequestWithMultipart(ctx context.Context, method string, fields map[string]string, files map[string]string) (*Response, error) {
 	url := c.buildURL(method)
 
@@ -384,7 +400,6 @@ func (c *Client) RequestWithMultipart(ctx context.Context, method string, fields
 				return
 			}
 
-			// استفاده از io.CopyBuffer برای بهینه‌سازی
 			_, err = io.Copy(part, f)
 			f.Close()
 			if err != nil {
@@ -429,17 +444,13 @@ func (c *Client) RequestWithMultipart(ctx context.Context, method string, fields
 
 	defer resp.Body.Close()
 
-	limited := io.LimitReader(resp.Body, 100<<20)
-	data, err := io.ReadAll(limited)
-	if err != nil {
-		c.stats.Record(time.Since(start), false, int64(len(data)), 0)
-		return nil, fmt.Errorf("failed to read multipart response: %w", err)
-	}
+	limited := io.LimitReader(resp.Body, 10<<20)
+	cr := &countReader{Reader: limited}
 
 	var apiResp Response
-	if err := json.Unmarshal(data, &apiResp); err != nil {
-		c.stats.Record(time.Since(start), false, int64(len(data)), 0)
-		return nil, fmt.Errorf("failed to decode multipart response: %w (body: %s)", err, truncate(string(data), 500))
+	if err := json.NewDecoder(cr).Decode(&apiResp); err != nil {
+		c.stats.Record(time.Since(start), false, cr.n, 0)
+		return nil, fmt.Errorf("failed to decode multipart response: %w", err)
 	}
 	apiResp.HTTPStatus = resp.StatusCode
 
@@ -450,11 +461,11 @@ func (c *Client) RequestWithMultipart(ctx context.Context, method string, fields
 				params = m
 			}
 		}
-		c.stats.Record(time.Since(start), false, int64(len(data)), 0)
+		c.stats.Record(time.Since(start), false, cr.n, 0)
 		return &apiResp, errors.ParseError(resp.StatusCode, apiResp.Description, params)
 	}
 
-	c.stats.Record(time.Since(start), true, int64(len(data)), 0)
+	c.stats.Record(time.Since(start), true, cr.n, 0)
 	return &apiResp, nil
 }
 
