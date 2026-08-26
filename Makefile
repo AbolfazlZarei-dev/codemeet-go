@@ -12,12 +12,14 @@ GOBUILD := $(GOCMD) build
 GORUN := $(GOCMD) run
 GOTEST := $(GOCMD) test
 GOMOD := $(GOCMD) mod
+GOFMT := $(GOCMD) fmt
+GOVET := $(GOCMD) vet
 
 # ==========================================
 # Targets (Commands)
 # ==========================================
 
-.PHONY: all info deps run build clean tidy help
+.PHONY: all info deps run build clean tidy fmt vet help
 
 # نمایش اطلاعات پروژه (پیش‌فرض هنگام اجرای make)
 all: info
@@ -60,6 +62,16 @@ clean:
     $(GOCMD) clean
     rm -f $(APP_NAME)
 
+# فرمت کردن کدهای Go
+fmt:
+    @echo "Formatting Go files..."
+    $(GOFMT) ./...
+
+# بررسی خطاهای استاتیک کدهای Go
+vet:
+    @echo "Vetting Go files..."
+    $(GOVET) ./...
+
 # راهنمای دستورات
 help:
     @echo "Available commands:"
@@ -69,3 +81,5 @@ help:
     @echo "  make run    - Run the example bot directly"
     @echo "  make build  - Build the bot into an executable"
     @echo "  make clean  - Remove built binaries"
+    @echo "  make fmt    - Format Go code"
+    @echo "  make vet    - Run go vet for static analysis"
