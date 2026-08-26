@@ -3,23 +3,24 @@ package cache
 import (
 	"sync"
 	"time"
+
+	"golang.org/x/sync/singleflight"
 )
 
-// Cache کش در حافظه با TTL — thread-safe و بهینه
 type Cache struct {
 	mu    sync.RWMutex
 	items map[string]*item
 	ttl   time.Duration
 	stop  chan struct{}
+	sf    singleflight.Group
 }
 
 type item struct {
 	value     interface{}
 	expiresAt time.Time
-	ttl       time.Duration // برای TTL اختصاصی
+	ttl       time.Duration
 }
 
-// New ساخت کش جدید
 func New(ttl time.Duration) *Cache {
 	c := &Cache{
 		items: make(map[string]*item),
@@ -30,7 +31,6 @@ func New(ttl time.Duration) *Cache {
 	return c
 }
 
-// Get دریافت مقدار
 func (c *Cache) Get(key string) (interface{}, bool) {
 	c.mu.RLock()
 	it, ok := c.items[key]
@@ -38,17 +38,18 @@ func (c *Cache) Get(key string) (interface{}, bool) {
 	if !ok {
 		return nil, false
 	}
-	if time.Now().After(it.expiresAt) {
-		// Lazy deletion
+	if !it.expiresAt.IsZero() && time.Now().After(it.expiresAt) {
 		c.mu.Lock()
-		delete(c.items, key)
+		// دوباره چک می‌کنیم تا Race Condition نباشد
+		if it, ok := c.items[key]; ok && !it.expiresAt.IsZero() && time.Now().After(it.expiresAt) {
+			delete(c.items, key)
+		}
 		c.mu.Unlock()
 		return nil, false
 	}
 	return it.value, true
 }
 
-// GetTyped دریافت مقدار با تایپ مشخص
 func GetTyped[T any](c *Cache, key string) (T, bool) {
 	v, ok := c.Get(key)
 	if !ok {
@@ -63,7 +64,6 @@ func GetTyped[T any](c *Cache, key string) (T, bool) {
 	return t, true
 }
 
-// Set ذخیره مقدار با TTL پیش‌فرض
 func (c *Cache) Set(key string, value interface{}) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
@@ -74,7 +74,6 @@ func (c *Cache) Set(key string, value interface{}) {
 	}
 }
 
-// SetWithTTL ذخیره با TTL اختصاصی
 func (c *Cache) SetWithTTL(key string, value interface{}, ttl time.Duration) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
@@ -85,32 +84,28 @@ func (c *Cache) SetWithTTL(key string, value interface{}, ttl time.Duration) {
 	}
 }
 
-// SetForever ذخیره بدون انقضا
 func (c *Cache) SetForever(key string, value interface{}) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	c.items[key] = &item{
 		value:     value,
-		expiresAt: time.Now().AddDate(100, 0, 0),
+		expiresAt: time.Time{}, // Zero value means no expiry
 		ttl:       0,
 	}
 }
 
-// Delete حذف مقدار
 func (c *Cache) Delete(key string) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	delete(c.items, key)
 }
 
-// Len تعداد آیتم‌ها
 func (c *Cache) Len() int {
 	c.mu.RLock()
 	defer c.mu.RUnlock()
 	return len(c.items)
 }
 
-// Keys لیست کلیدها
 func (c *Cache) Keys() []string {
 	c.mu.RLock()
 	defer c.mu.RUnlock()
@@ -121,30 +116,43 @@ func (c *Cache) Keys() []string {
 	return keys
 }
 
-// Clear پاک کردن کل کش
 func (c *Cache) Clear() {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	c.items = make(map[string]*item)
 }
 
-// GetOrSet دریافت یا تنظیم با تابع
+// GetOrSet اصلاح شده با singleflight برای جلوگیری از Cache Stampede
 func (c *Cache) GetOrSet(key string, fn func() interface{}) interface{} {
 	if v, ok := c.Get(key); ok {
 		return v
 	}
-	v := fn()
-	c.Set(key, v)
+
+	v, _, _ := c.sf.Do(key, func() (interface{}, error) {
+		// دوباره چک می‌کنیم شاید در حالت caricature قبلا ست شده باشد
+		if v, ok := c.Get(key); ok {
+			return v, nil
+		}
+		val := fn()
+		c.Set(key, val)
+		return val, nil
+	})
 	return v
 }
 
-// GetOrSetWithTTL دریافت یا تنظیم با TTL اختصاصی
 func (c *Cache) GetOrSetWithTTL(key string, ttl time.Duration, fn func() interface{}) interface{} {
 	if v, ok := c.Get(key); ok {
 		return v
 	}
-	v := fn()
-	c.SetWithTTL(key, v, ttl)
+
+	v, _, _ := c.sf.Do(key, func() (interface{}, error) {
+		if v, ok := c.Get(key); ok {
+			return v, nil
+		}
+		val := fn()
+		c.SetWithTTL(key, val, ttl)
+		return val, nil
+	})
 	return v
 }
 
@@ -166,28 +174,24 @@ func (c *Cache) cleanup() {
 	defer c.mu.Unlock()
 	now := time.Now()
 	for k, v := range c.items {
-		if now.After(v.expiresAt) {
+		if !v.expiresAt.IsZero() && now.After(v.expiresAt) {
 			delete(c.items, k)
 		}
 	}
 }
 
-// Close توقف cleanup
 func (c *Cache) Close() {
 	select {
 	case <-c.stop:
-		// already closed
 	default:
 		close(c.stop)
 	}
 }
 
-// ShardedCache کش چند-بخشی برای کاهش lock contention
 type ShardedCache struct {
 	shards []*Cache
 }
 
-// NewSharded ساخت کش چند-بخشی برای سرعت بالا
 func NewSharded(shards int, ttl time.Duration) *ShardedCache {
 	if shards <= 0 {
 		shards = 32
@@ -206,7 +210,38 @@ func (s *ShardedCache) getShard(key string) *Cache {
 
 func (s *ShardedCache) Get(key string) (interface{}, bool) { return s.getShard(key).Get(key) }
 func (s *ShardedCache) Set(key string, value interface{})  { s.getShard(key).Set(key, value) }
-func (s *ShardedCache) Delete(key string)                  { s.getShard(key).Delete(key) }
+func (s *ShardedCache) SetWithTTL(key string, value interface{}, ttl time.Duration) {
+	s.getShard(key).SetWithTTL(key, value, ttl)
+}
+func (s *ShardedCache) SetForever(key string, value interface{}) {
+	s.getShard(key).SetForever(key, value)
+}
+func (s *ShardedCache) Delete(key string) { s.getShard(key).Delete(key) }
+func (s *ShardedCache) GetOrSet(key string, fn func() interface{}) interface{} {
+	return s.getShard(key).GetOrSet(key, fn)
+}
+func (s *ShardedCache) GetOrSetWithTTL(key string, ttl time.Duration, fn func() interface{}) interface{} {
+	return s.getShard(key).GetOrSetWithTTL(key, ttl, fn)
+}
+func (s *ShardedCache) Len() int {
+	total := 0
+	for _, c := range s.shards {
+		total += c.Len()
+	}
+	return total
+}
+func (s *ShardedCache) Keys() []string {
+	var keys []string
+	for _, c := range s.shards {
+		keys = append(keys, c.Keys()...)
+	}
+	return keys
+}
+func (s *ShardedCache) Clear() {
+	for _, c := range s.shards {
+		c.Clear()
+	}
+}
 func (s *ShardedCache) Close() {
 	for _, c := range s.shards {
 		c.Close()
