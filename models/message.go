@@ -1,6 +1,9 @@
 package models
 
-import "encoding/json"
+import (
+	"encoding/json"
+	"strings"
+)
 
 type Message struct {
 	MessageID           int                   `json:"message_id"`
@@ -19,7 +22,6 @@ type Message struct {
 	EditDate            int64                 `json:"edit_date,omitempty"`
 	HasProtectedContent bool                  `json:"has_protected_content,omitempty"`
 
-	// Media types
 	Photo     []PhotoSize `json:"photo,omitempty"`
 	Video     *Video      `json:"video,omitempty"`
 	Audio     *Audio      `json:"audio,omitempty"`
@@ -39,7 +41,8 @@ type Message struct {
 func (m *Message) HasMedia() bool {
 	return m.Photo != nil || m.Video != nil || m.Audio != nil ||
 		m.Document != nil || m.Animation != nil || m.Voice != nil ||
-		m.VideoNote != nil || m.Sticker != nil
+		m.VideoNote != nil || m.Sticker != nil || m.Contact != nil ||
+		m.Location != nil || m.Venue != nil || m.Poll != nil || m.Dice != nil
 }
 
 // IsCommand آیا پیام یک دستور است
@@ -52,7 +55,7 @@ func (m *Message) IsCommand() bool {
 	return false
 }
 
-// CommandName نام دستور (بدون /)
+// CommandName نام دستور (بدون / و بدون @botname)
 func (m *Message) CommandName() string {
 	for _, e := range m.Entities {
 		if e.Type == EntityBotCommand {
@@ -60,6 +63,10 @@ func (m *Message) CommandName() string {
 				cmd := m.Text[e.Offset : e.Offset+e.Length]
 				if len(cmd) > 0 && cmd[0] == '/' {
 					cmd = cmd[1:]
+				}
+				// حذف @botname اگر وجود داشت
+				if idx := strings.Index(cmd, "@"); idx != -1 {
+					cmd = cmd[:idx]
 				}
 				return cmd
 			}
@@ -70,14 +77,28 @@ func (m *Message) CommandName() string {
 
 // CommandArgs آرگومان‌های دستور
 func (m *Message) CommandArgs() string {
+	if !m.IsCommand() {
+		return ""
+	}
+
 	cmdName := "/" + m.CommandName()
+	// اگر در متن @botname وجود داشت، آن را نادیده می‌گیریم
+	if idx := strings.Index(m.Text, "@"); idx != -1 {
+		// پیدا کردن فاصله بعد از @botname
+		spaceIdx := strings.Index(m.Text[idx:], " ")
+		if spaceIdx != -1 {
+			return strings.TrimSpace(m.Text[idx+spaceIdx:])
+		}
+		return ""
+	}
+
 	if len(m.Text) > len(cmdName) {
-		return m.Text[len(cmdName)+1:]
+		return strings.TrimSpace(m.Text[len(cmdName)+1:])
 	}
 	return ""
 }
 
-// MessageEntity موجودیت‌های متن
+// ... (بقیه مدل‌ها دقیقاً مثل قبل هستند، از MessageEntity تا انتهای فایل)
 type MessageEntity struct {
 	Type        string `json:"type"`
 	Offset      int    `json:"offset"`
@@ -109,7 +130,6 @@ const (
 	EntityCustomEmoji   = "custom_emoji"
 )
 
-// ParseMode حالت‌های قالب‌بندی
 type ParseMode string
 
 const (
@@ -118,7 +138,6 @@ const (
 	ParseModeMarkdownV2 ParseMode = "MarkdownV2"
 )
 
-// ChatAction اکشن‌های چت
 type ChatAction string
 
 const (
@@ -135,9 +154,6 @@ const (
 	ActionUploadVideoNote ChatAction = "upload_video_note"
 )
 
-// --- مدل‌های مدیا ---
-
-// PhotoSize اندازه‌های مختلف عکس
 type PhotoSize struct {
 	FileID       string `json:"file_id"`
 	FileUniqueID string `json:"file_unique_id"`
@@ -146,7 +162,6 @@ type PhotoSize struct {
 	FileSize     int64  `json:"file_size,omitempty"`
 }
 
-// Video ویدیو
 type Video struct {
 	FileID       string     `json:"file_id"`
 	FileUniqueID string     `json:"file_unique_id"`
@@ -159,7 +174,6 @@ type Video struct {
 	FileSize     int64      `json:"file_size,omitempty"`
 }
 
-// Audio صوت
 type Audio struct {
 	FileID       string     `json:"file_id"`
 	FileUniqueID string     `json:"file_unique_id"`
@@ -172,7 +186,6 @@ type Audio struct {
 	Thumbnail    *PhotoSize `json:"thumbnail,omitempty"`
 }
 
-// Document سند
 type Document struct {
 	FileID       string     `json:"file_id"`
 	FileUniqueID string     `json:"file_unique_id"`
@@ -182,7 +195,6 @@ type Document struct {
 	FileSize     int64      `json:"file_size,omitempty"`
 }
 
-// Animation انیمیشن (گیف)
 type Animation struct {
 	FileID       string     `json:"file_id"`
 	FileUniqueID string     `json:"file_unique_id"`
@@ -195,7 +207,6 @@ type Animation struct {
 	FileSize     int64      `json:"file_size,omitempty"`
 }
 
-// Voice وویس
 type Voice struct {
 	FileID       string `json:"file_id"`
 	FileUniqueID string `json:"file_unique_id"`
@@ -204,7 +215,6 @@ type Voice struct {
 	FileSize     int64  `json:"file_size,omitempty"`
 }
 
-// VideoNote ویژگی ویدیو گرد
 type VideoNote struct {
 	FileID       string     `json:"file_id"`
 	FileUniqueID string     `json:"file_unique_id"`
@@ -214,7 +224,6 @@ type VideoNote struct {
 	FileSize     int64      `json:"file_size,omitempty"`
 }
 
-// Contact مخاطب
 type Contact struct {
 	PhoneNumber string `json:"phone_number"`
 	FirstName   string `json:"first_name"`
@@ -223,7 +232,6 @@ type Contact struct {
 	VCard       string `json:"vcard,omitempty"`
 }
 
-// Location موقعیت مکانی
 type Location struct {
 	Longitude            float64 `json:"longitude"`
 	Latitude             float64 `json:"latitude"`
@@ -233,7 +241,6 @@ type Location struct {
 	ProximityAlertRadius int     `json:"proximity_alert_radius,omitempty"`
 }
 
-// Venue مکان روی نقشه
 type Venue struct {
 	Location        *Location `json:"location"`
 	Title           string    `json:"title"`
@@ -244,7 +251,6 @@ type Venue struct {
 	GooglePlaceType string    `json:"google_place_type,omitempty"`
 }
 
-// Poll نظرسنجی
 type Poll struct {
 	ID                    string       `json:"id"`
 	Question              string       `json:"question"`
@@ -258,19 +264,16 @@ type Poll struct {
 	Explanation           string       `json:"explanation,omitempty"`
 }
 
-// PollOption گزینه نظرسنجی
 type PollOption struct {
 	Text       string `json:"text"`
 	VoterCount int    `json:"voter_count"`
 }
 
-// Dice تاس
 type Dice struct {
 	Emoji string `json:"emoji"`
 	Value int    `json:"value"`
 }
 
-// Sticker استیکر
 type Sticker struct {
 	FileID       string     `json:"file_id"`
 	FileUniqueID string     `json:"file_unique_id"`
@@ -285,7 +288,6 @@ type Sticker struct {
 	FileSize     int64      `json:"file_size,omitempty"`
 }
 
-// StickerSet مجموعه استیکر
 type StickerSet struct {
 	Name        string     `json:"name"`
 	Title       string     `json:"title"`
@@ -296,7 +298,6 @@ type StickerSet struct {
 	Thumbnail   *PhotoSize `json:"thumbnail,omitempty"`
 }
 
-// File فایل
 type File struct {
 	FileID       string `json:"file_id"`
 	FileUniqueID string `json:"file_unique_id"`
@@ -304,7 +305,6 @@ type File struct {
 	FilePath     string `json:"file_path,omitempty"`
 }
 
-// InputMedia مدیا برای ارسال گروهی
 type InputMedia struct {
 	Type            string          `json:"type"`
 	Media           string          `json:"media"`
@@ -321,14 +321,12 @@ type InputMedia struct {
 	HasSpoiler      bool            `json:"has_spoiler,omitempty"`
 }
 
-// ReactionType نوع واکنش
 type ReactionType struct {
 	Type        string `json:"type"`
 	Emoji       string `json:"emoji,omitempty"`
 	CustomEmoji string `json:"custom_emoji_id,omitempty"`
 }
 
-// MarshalJSON سفارشی برای InputMedia (مدیریت nil)
 func (im InputMedia) MarshalJSON() ([]byte, error) {
 	type alias InputMedia
 	return json.Marshal(alias(im))

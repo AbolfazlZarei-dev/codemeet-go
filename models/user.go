@@ -14,10 +14,8 @@ type User struct {
 	SupportsInlineQueries   bool   `json:"supports_inline_queries,omitempty"`
 }
 
-// IsUser آیا کاربر عادی است (نه ربات)
 func (u *User) IsUser() bool { return !u.IsBot }
 
-// FullName نام کامل کاربر
 func (u *User) FullName() string {
 	if u.LastName != "" {
 		return u.FirstName + " " + u.LastName
@@ -25,7 +23,6 @@ func (u *User) FullName() string {
 	return u.FirstName
 }
 
-// Mention منشن کاربر
 func (u *User) Mention() string {
 	if u.Username != "" {
 		return "@" + u.Username
@@ -37,6 +34,9 @@ func (u *User) Mention() string {
 func (u *User) HTMLMention() string {
 	if u.Username != "" {
 		return `<a href="https://codemeet.chat/` + u.Username + `">` + u.FullName() + "</a>"
+	}
+	if u.ID != "" {
+		return `<a href="tg://user?id=` + u.ID + `">` + u.FullName() + "</a>"
 	}
 	return u.FullName()
 }
