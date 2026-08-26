@@ -1,5 +1,4 @@
 
-
 # ۶. قابلیت‌های پیشرفته
 
 این کتابخانه ابزارهای پیشرفته‌ای برای محیط‌های پروداکشن، ترافیک بالا و مانیتورینگ ارائه می‌دهد.
@@ -9,64 +8,60 @@
 
 ```go
 go func() {
-    if err := bot.StartDashboard(ctx, ":8080"); err != nil {
-        log.Fatal(err)
+    dashCtx, cancel := context.WithCancel(context.Background())
+    defer cancel()
+    
+    // داشبورد روی پورت 9090 اجرا می‌شود
+    if err := bot.StartDashboard(dashCtx, ":9090"); err != nil {
+        log.Printf("Dashboard error: %v", err)
     }
 }()
 ```
-سپس مرورگر را روی `http://localhost:8080` باز کنید.
+سپس مرورگر را روی `http://localhost:9090` باز کنید.
 **امکانات داشبورد:**
 - مشاهده آمار درخواست‌ها (Total, Success, Error, Avg Latency, Bytes In/Out)
 - مشاهده لاگ‌های زنده (Live Logs) با رنگ‌بندی استاندارد در یک ترمینال شبیه‌سازی شده
+- دکمه توقف اسکرول لاگ‌ها (Pause/Resume) و دکمه کپی لاگ‌ها
 - مشاهده وضعیت سرویس‌ها (System Status) و ویژگی‌های فعال ربات
 
 ## میان‌افزارها (Middlewares)
-برای کنترل جریان آپدیت‌ها قبل از رسیدن به هندلر اصلی می‌توانید از Middlewares استفاده کنید:
+برای کنترل جریان آپدیت‌ها قبل از رسیدن به هندلر اصلی می‌توانید از Middlewares آماده استفاده کنید. متد `bot.Use` به شما اجازه می‌دهد چندین میدل‌ور را به سادگی متصل کنید:
 
 ```go
-// ۱. جلوگیری از کرش در پانیک (Panic Recovery)
-bot.Use(func(next dispatcher.HandlerFunc) dispatcher.HandlerFunc {
-    return middleware.Recovery(bot.Logger())(func(ctx context.Context, u *models.Update) {
-        next(ctx, u)
-    })
-})
+import (
+    "time"
+    "github.com/AbolfazlZarei-dev/codemeet-go/middleware"
+)
 
-// ۲. لاگ‌گیری زمان پردازش هر آپدیت
-bot.Use(func(next dispatcher.HandlerFunc) dispatcher.HandlerFunc {
-    return middleware.Logging(bot.Logger())(func(ctx context.Context, u *models.Update) {
-        next(ctx, u)
-    })
-})
+// اتصال میدل‌ورها به صورت زنجیره‌ای
+bot.Use(
+    // ۱. جلوگیری از کرش در پانیک (Panic Recovery)
+    middleware.Recovery(bot.Logger()),
 
-// ۳. محدودیت نرخ برای هر کاربر (مثلا نهایتاً ۵ پیام در ۱ دقیقه)
-bot.Use(func(next dispatcher.HandlerFunc) dispatcher.HandlerFunc {
-    return middleware.RateLimit(5, time.Minute)(func(ctx context.Context, u *models.Update) {
-        next(ctx, u)
-    })
-})
+    // ۲. لاگ‌گیری زمان پردازش هر آپدیت
+    middleware.Logging(bot.Logger()),
 
-// ۴. فیلتر کاربران (لیست سیاه)
-bot.Use(func(next dispatcher.HandlerFunc) dispatcher.HandlerFunc {
-    return middleware.Blacklist(func(userID string) bool {
+    // ۳. محدودیت نرخ برای هر کاربر (مثلا نهایتاً ۵ پیام در ۱ دقیقه)
+    middleware.RateLimit(5, time.Minute),
+
+    // ۴. فیلتر کاربران (لیست سیاه)
+    middleware.Blacklist(func(userID string) bool {
         return userID == "banned-user-uuid"
-    })(func(ctx context.Context, u *models.Update) {
-        next(ctx, u)
-    })
-})
+    }),
+)
 ```
 
+همچنین می‌توانید از پکیج‌های مستقل امنیتی مانند **ضد اسپم (Anti-Spam)** و **ضد لینک (Anti-Link)** که در مسیر `contrib/` قرار دارند استفاده کنید.
+
 ## مدیریت خطاها و Circuit Breaker
-کتابخانه از الگوی Circuit Breaker استفاده می‌کند. اگر سرور کدمیت دچار مشکل شود، پس از چندین خطای متوالی، ارسال درخواست‌ها موقتاً متوقف می‌شود تا سرور فشار کمتری داشته باشد و سپس در حالت Half-Open تست می‌شود.
+کتابخانه از الگوی Circuit Breaker در سطح شبکه استفاده می‌کند. اگر سرور کدمیت دچار مشکل شود (خطاهای 5xx یا 429)، پس از چندین خطای متوالی، ارسال درخواست‌ها موقتاً متوقف می‌شود تا سرور فشار کمتری داشته باشد و سپس در حالت Half-Open تست می‌شود.
+
+شما می‌توانید خطاهای برگشتی از API را به دقت مدیریت کنید:
 
 ```go
-// بررسی وضعیت Circuit Breaker
-if bot.API().Client().Breaker().State() == api.StateOpen {
-    log.Println("هشدار: سرور در دسترس نیست و Circuit Breaker باز شده است!")
-}
-
-// مدیریت خطاهای API به‌صورت دستی
 msg, err := bot.Send(ctx, chatID, "test")
 if err != nil {
+    // بررسی نوع خطای رخ داده
     if apiErr, ok := errors.AsAPIError(err); ok {
         switch apiErr.Code {
         case errors.CodeTooManyRequests:
@@ -77,34 +72,37 @@ if err != nil {
             log.Println("درخواست نامعتبر:", apiErr.Description)
         }
     } else if netErr, ok := errors.AsNetworkError(err); ok {
+        // خطاهای شبکه (قطعی اینترنت، timeout و غیره)
         log.Println("خطای شبکه:", netErr)
+    } else {
+        log.Println("خطای ناشناخته:", err)
     }
 }
 ```
 
-## WebSocket Hub
-برای ارتباطات Real-time و دریافت رویدادهای آنی (بدون نیاز به Polling یا Webhook عمومی):
+برای بررسی دستی وضعیت Circuit Breaker نیز می‌توانید به این شکل عمل کنید:
 
 ```go
-hub := bot.WS()
-// اتصال به سرور وب‌سوکت کدمیت
-err := hub.Connect(ctx, "wss://botapi.codemeet.chat/ws/your_endpoint")
-if err != nil {
-    log.Fatal(err)
+// 0 = Closed, 1 = Open, 2 = Half-Open
+if bot.API().Client().Breaker().State() == 1 {
+    log.Println("هشدار: سرور در دسترس نیست و Circuit Breaker باز شده است!")
 }
+```
 
-// اشتراک در رویدادهای خاص (مثلاً پیام جدید)
-eventChan := hub.Subscribe("message")
+## لاگر پیشرفته و رنگی
+کتابخانه دارای یک لاگر داخلی بسیار سبک و سریع است که در تمام سیستم‌عامل‌ها (ویندوز، لینوکس، مک) از کدهای ANSI برای رنگی کردن خروجی ترمینال استفاده می‌کند. شما می‌توانید سطح لاگ‌ها را کنترل کنید:
 
-go func() {
-    for event := range eventChan {
-        log.Println("رویداد WS دریافت شد:", event.Type)
-        // پردازش payload رویداد
-    }
-}()
+```go
+// تغییر سطح لاگ به Debug (برای دیباگ)
+bot.Logger().SetLevel(logger.LevelDebug)
 
-// ارسال پیام از طریق وب‌سوکت
-hub.Send(ctx, "wss://botapi.codemeet.chat/ws/your_endpoint", map[string]string{
-    "type": "ping",
-})
-
+// لاگ‌گیری با فیلدهای ساختاریافته
+bot.Logger().Info("Server started", "port", 9090, "status", "running")
+bot.Logger().Warn("Rate limit approaching", "user_id", "12345")
+bot.Logger().Error("Failed to send message", "error", err)
+```
+اگر قصد دارید لاگ‌ها را در فایل ذخیره کنید یا فرمت آن‌ها را به JSON تغییر دهید:
+```go
+bot.Logger().SetFormat(logger.FormatJSON)
+bot.Logger().SetOutput(myLogFile)
+```
