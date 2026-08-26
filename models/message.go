@@ -22,6 +22,9 @@ type Message struct {
 	EditDate            int64                 `json:"edit_date,omitempty"`
 	HasProtectedContent bool                  `json:"has_protected_content,omitempty"`
 
+	NewChatMembers []User `json:"new_chat_members,omitempty"`
+	LeftChatMember *User  `json:"left_chat_member,omitempty"`
+
 	Photo     []PhotoSize `json:"photo,omitempty"`
 	Video     *Video      `json:"video,omitempty"`
 	Audio     *Audio      `json:"audio,omitempty"`
