@@ -1,6 +1,7 @@
 package errors
 
 import (
+	stderrors "errors" // آلیاس برای جلوگیری از تداخل با نام پکیج محلی
 	"fmt"
 	"strconv"
 	"strings"
@@ -82,35 +83,15 @@ type retryableErr interface {
 	IsRetryable() bool
 }
 
-// IsRetryable اصلاح شده با errors.As
+// IsRetryable اصلاح شده با errors.As استاندارد
 func IsRetryable(err error) bool {
 	if err == nil {
 		return false
 	}
 
 	var r retryableErr
-	if stdErrorsAs(err, &r) {
+	if stderrors.As(err, &r) {
 		return r.IsRetryable()
-	}
-	return false
-}
-
-// برای جلوگیری از import cycle، یک wrapper ساده برای errors.As
-func stdErrorsAs(err error, target interface{}) bool {
-	type asInterface interface {
-		As(interface{}) bool
-	}
-
-	if e, ok := err.(asInterface); ok {
-		return e.As(target)
-	}
-
-	// fallback to type assertion
-	if ptr, ok := target.(*retryableErr); ok {
-		if r, ok := err.(retryableErr); ok {
-			*ptr = r
-			return true
-		}
 	}
 	return false
 }
@@ -186,6 +167,11 @@ func (m *MultiError) Error() string {
 	return strings.Join(parts, "; ")
 }
 
+// Unwrap برای پشتیبانی از errors.Is و errors.As در زنجیره خطاها
+func (m *MultiError) Unwrap() []error {
+	return m.Errors
+}
+
 func (m *MultiError) Add(err error) {
 	if err != nil {
 		m.Errors = append(m.Errors, err)
@@ -196,22 +182,26 @@ func (m *MultiError) HasError() bool {
 	return len(m.Errors) > 0
 }
 
+// استفاده از errors.As استاندارد برای تطبیق دقیق
 func AsAPIError(err error) (*APIError, bool) {
-	if e, ok := err.(*APIError); ok {
+	var e *APIError
+	if stderrors.As(err, &e) {
 		return e, true
 	}
 	return nil, false
 }
 
 func AsNetworkError(err error) (*NetworkError, bool) {
-	if e, ok := err.(*NetworkError); ok {
+	var e *NetworkError
+	if stderrors.As(err, &e) {
 		return e, true
 	}
 	return nil, false
 }
 
 func AsValidationError(err error) (*ValidationError, bool) {
-	if e, ok := err.(*ValidationError); ok {
+	var e *ValidationError
+	if stderrors.As(err, &e) {
 		return e, true
 	}
 	return nil, false
