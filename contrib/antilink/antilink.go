@@ -11,21 +11,17 @@ import (
 
 // Config تنظیمات سیستم ضد لینک
 type Config struct {
-	// AllowedDomains لیست دامنه‌های مجاز (مثلاً codemeet.chat)
 	AllowedDomains []string
-	// BlockUsernames مسدودسازی آیدی کاربران (@username)
 	BlockUsernames bool
-	// BlockInvites مسدودسازی لینک‌های دعوت (joinchat)
-	BlockInvites bool
-	// Action اکشن هنگام تشخیص لینک (برای حذف پیام، اخطار یا بن)
-	Action func(ctx context.Context, userID, chatID string, messageID int, reason string)
+	BlockInvites   bool
+	Action         func(ctx context.Context, userID, chatID string, messageID int, reason string)
 }
 
 // DefaultConfig تنظیمات پیش‌فرض
 func DefaultConfig() Config {
 	return Config{
 		AllowedDomains: []string{"codemeet.chat"},
-		BlockUsernames: false, // معمولاً در گروه‌ها فعال می‌شود
+		BlockUsernames: false,
 		BlockInvites:   true,
 		Action:         nil,
 	}
@@ -48,11 +44,11 @@ func New(cfg Config) *AntiLink {
 
 	return &AntiLink{
 		cfg: cfg,
-		// تشخیص لینک‌های HTTP و WWW
-		urlRegex: regexp.MustCompile(`(?i)\b((https?://|www\.)[^\s]+)`),
+		// تشخیص همه نوع لینک (http, https, www, و دامنه‌های بدون پروتکل مثل google.com)
+		urlRegex: regexp.MustCompile(`(?i)((https?://|www\.)[^\s]+|[a-z0-9-]+\.(com|net|org|ir|me|io|app|dev|co|info|xyz|tv|biz|tk)(/[^\s]*)?)`),
 		// تشخیص لینک‌های کدمیت/تلگرام (t.me/...)
 		tgLinkRegex: regexp.MustCompile(`(?i)\b(t\.me|telegram\.me)/[^\s]+`),
-		// تشخیص لینک‌های دعوت
+		// تشخیص لینک‌های دعوت (joinchat)
 		inviteRegex: regexp.MustCompile(`(?i)(t\.me/|telegram\.me/)(joinchat|\+)`),
 		// تشخیص یوزرنیم‌ها (@username)
 		usernameRegex: regexp.MustCompile(`(?i)@([a-zA-Z0-9_]{5,})`),
@@ -63,7 +59,6 @@ func New(cfg Config) *AntiLink {
 func (al *AntiLink) Middleware() dispatcher.MiddlewareFunc {
 	return func(next dispatcher.HandlerFunc) dispatcher.HandlerFunc {
 		return func(ctx context.Context, u *models.Update) {
-			// فقط پیام‌های متنی را بررسی کن
 			if u.Message == nil || u.Message.Text == "" {
 				next(ctx, u)
 				return
@@ -86,13 +81,13 @@ func (al *AntiLink) Middleware() dispatcher.MiddlewareFunc {
 				reason = "invite link detected"
 			}
 
-			// ۲. بررسی لینک‌های کدمیت/تلگرام
+			// ۲. بررسی لینک‌های کدمیت/تلگرام (t.me/...)
 			if !isBlocked && al.tgLinkRegex.MatchString(text) {
 				isBlocked = true
 				reason = "telegram/codemeet link detected"
 			}
 
-			// ۳. بررسی لینک‌های معمولی (HTTP/WWW)
+			// ۳. بررسی لینک‌های معمولی و دامنه‌ها
 			if !isBlocked {
 				matches := al.urlRegex.FindAllStringSubmatch(text, -1)
 				for _, match := range matches {
@@ -123,12 +118,11 @@ func (al *AntiLink) Middleware() dispatcher.MiddlewareFunc {
 				}
 			}
 
-			// اگر لینکی شناسایی شد
+			// اجرای اکشن در صورت شناسایی لینک
 			if isBlocked {
 				if al.cfg.Action != nil {
 					al.cfg.Action(ctx, userID, chatID, msgID, reason)
 				}
-				// جلوگیری از اجرای بقیه هندلرها
 				return
 			}
 
