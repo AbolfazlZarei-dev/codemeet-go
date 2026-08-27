@@ -6,45 +6,15 @@
 > **Repository:** `github.com/AbolfazlZarei-dev/codemeet-go`  
 > **Bot API:** `https://botapi.codemeet.chat`
 
-CodeMeet Go یک کتابخانه‌ی Go برای توسعه‌ی Botهای CodeMeet است که
-Bot API را به یک API مدرن، type-safe و قابل استفاده در پروژه‌های واقعی Go
-تبدیل می‌کند.
+CodeMeet Go یک کتابخانه‌ی Go برای ساخت Botهای CodeMeet است که لایه‌ی Bot API را با typeهای Go، متدهای سطح بالا، Dispatcher، Middleware، Polling، Webhook، Retry، Rate Limit، Cache، Logging، Metrics و ابزارهای کمکی قابل استفاده در پروژه‌های واقعی ارائه می‌کند.
 
-این کتابخانه علاوه بر متدهای مستقیم Bot API، امکاناتی مانند:
-
-- Typed Models
-- API Client
-- Message Handling
-- Media Handling
-- Dispatcher
-- Middleware
-- Long Polling
-- Webhook
-- Retry Policy
-- Rate Limiting
-- Concurrency Limiting
-- Cache
-- Sharded Cache
-- Circuit Breaker
-- Logging
-- Metrics
-- Statistics
-- Health Check
-- Graceful Shutdown
-- Dashboard
-- Dashboard Authentication
-- Request ID
-- و مجموعه‌ای از ابزارهای `contrib`
-
-را در اختیار توسعه‌دهنده قرار می‌دهد.
+این مستندات بر اساس سورس کتابخانه و مستندات Bot API ارائه‌شده برای نسخه `1.0.0` تهیه شده‌اند. ساختار پروژه شامل هسته‌ی `codemeet`، لایه‌ی `api`، `methods`، `models`، `dispatcher`، `middleware`، `polling`، `webhook`، `cache`، `ratelimit`، `retry`، `logger`، `errors` و مجموعه‌ی `contrib` است.
 
 ---
 
 # 📚 Documentation Coverage
 
-مستندات CodeMeet Go به‌صورت بخش‌بندی‌شده طراحی شده‌اند تا هم برای
-توسعه‌دهنده‌ی تازه‌کار قابل استفاده باشند و هم برای توسعه‌ی Production
-مرجع مناسبی برای API کتابخانه باشند.
+مستندات CodeMeet Go به‌صورت بخش‌بندی‌شده طراحی شده‌اند تا هم برای توسعه‌دهنده‌ی تازه‌کار قابل استفاده باشند و هم برای توسعه‌ی Production مرجع مناسبی برای API کتابخانه باشند.
 
 | بخش | وضعیت | توضیح |
 |---|---|---|
@@ -76,19 +46,18 @@ Bot API را به یک API مدرن، type-safe و قابل استفاده در 
 | Dashboard | ✅ Supported | نمایش اطلاعات و لاگ‌های Bot |
 | Dashboard Authentication | ✅ Supported | محافظت از Dashboard با Authentication |
 | Request ID | ✅ Supported | Trace کردن Requestها |
-| `contrib/antilink` | 🧩 Contrib | محافظت و مدیریت لینک‌ها |
+| `contrib/antilink` | 🧩 Contrib | تشخیص و کنترل لینک‌ها |
 | `contrib/antispam` | 🧩 Contrib | تشخیص و کنترل Spam |
 | `contrib/forcejoin` | 🧩 Contrib | بررسی عضویت اجباری |
 | `contrib/gatekeeper` | 🧩 Contrib | سیستم Verification و CAPTCHA |
 | `contrib/maintenancemode` | 🧩 Contrib | حالت تعمیرات Bot |
-| `contrib/pagination` | 🧩 Contrib | ابزارهای Pagination |
 | `contrib/profanityfilter` | 🧩 Contrib | تشخیص کلمات نامناسب |
 | `contrib/vpndetector` | 🧩 Contrib | تشخیص VPN/Proxy و داده‌های مشکوک |
 | `contrib/warnsystem` | 🧩 Contrib | سیستم Warning و مدیریت تخلف |
 
 > وضعیت‌های جدول بالا بر اساس وضعیت API و سورس نسخه `1.0.0` تعریف شده‌اند.
-> `🧩 Contrib` به معنی قابلیت مستقل و کمکی است و جزو هسته‌ی Bot API محسوب
-> نمی‌شود.
+>
+> `🧩 Contrib` به معنی قابلیت مستقل و کمکی است و جزو هسته‌ی Bot API محسوب نمی‌شود.
 
 ---
 
@@ -96,31 +65,21 @@ Bot API را به یک API مدرن، type-safe و قابل استفاده در 
 
 CodeMeet Go با هدف فراهم کردن یک API پایدار و قابل توسعه طراحی شده است.
 
-در نسخه `1.0.0` ممکن است بعضی از Methodها در سطح کتابخانه تعریف شده باشند،
-اما Endpoint یا قابلیت متناظر آن‌ها هنوز در نسخه‌ی فعلی **CodeMeet Bot API**
-ارائه نشده باشد.
+در نسخه `1.0.0` ممکن است بعضی از Methodها در سطح کتابخانه تعریف شده باشند، اما Endpoint یا قابلیت متناظر آن‌ها هنوز در نسخه‌ی فعلی **CodeMeet Bot API** ارائه نشده باشد.
 
-این موارد به‌صورت **Future-Ready / Forward-Compatible API** در نظر گرفته
-شده‌اند.
+این موارد به‌صورت **Future-Ready / Forward-Compatible API** در نظر گرفته شده‌اند.
 
 به عبارت دیگر:
 
-> **وجود یک Method در کتابخانه الزاماً به معنی فعال بودن Endpoint متناظر
-> آن در Bot API نسخه‌ی فعلی نیست.**
+> **وجود یک Method در کتابخانه الزاماً به معنی فعال بودن Endpoint متناظر آن در Bot API نسخه‌ی فعلی نیست.**
 
-برخی APIها از هم‌اکنون در ساختار کتابخانه تعریف شده‌اند تا با اضافه شدن
-قابلیت مربوطه به Bot API، نیاز به تغییر اساسی در معماری کتابخانه وجود نداشته
-باشد.
+برخی APIها از هم‌اکنون در ساختار کتابخانه تعریف شده‌اند تا با اضافه شدن قابلیت مربوطه به Bot API، نیاز به تغییر اساسی در معماری کتابخانه وجود نداشته باشد.
 
-در صورتی که یک Method در نسخه‌ی فعلی Bot API پشتیبانی نشود، اجرای آن ممکن
-است با خطای API یا خطای مربوط به Endpoint مواجه شود.
+در صورتی که یک Method در نسخه‌ی فعلی Bot API پشتیبانی نشود، اجرای آن ممکن است با خطای API یا خطای مربوط به Endpoint مواجه شود.
 
-این وضعیت یک **Compatibility Limitation** محسوب می‌شود و به معنی خرابی
-کتابخانه نیست.
+این وضعیت یک **Compatibility Limitation** محسوب می‌شود و به معنی خرابی کتابخانه نیست.
 
-پس از انتشار قابلیت مربوطه در Bot API، در صورت نیاز implementation،
-request schema، response handling یا signature مربوطه در یک Release جدید
-با specification رسمی API هماهنگ خواهد شد.
+پس از انتشار قابلیت مربوطه در Bot API، در صورت نیاز implementation، request schema، response handling یا signature مربوطه در یک Release جدید با specification رسمی API هماهنگ خواهد شد.
 
 ### Source of Truth
 
@@ -131,8 +90,7 @@ request schema، response handling یا signature مربوطه در یک Release
 3. Implementation نسخه‌ی فعلی کتابخانه
 4. مستندات این Repository
 
-بنابراین مستندات کتابخانه نباید به‌تنهایی به‌عنوان تضمین فعال بودن یک
-Endpoint سمت سرور در نظر گرفته شوند.
+بنابراین مستندات کتابخانه نباید به‌تنهایی به‌عنوان تضمین فعال بودن یک Endpoint سمت سرور در نظر گرفته شوند.
 
 ---
 
@@ -185,6 +143,29 @@ func main() {
     }
 }
 ````
+
+---
+
+# 🤖 Bot API خام
+
+الگوی Endpoint:
+
+```text
+https://botapi.codemeet.chat/bot{token}/{method}
+```
+
+کتابخانه این لایه‌ی HTTP را پشت `api.Client` و `methods` قرار می‌دهد.
+
+---
+
+# 🧠 فلسفه کتابخانه
+
+* **Typed API:** مدل‌های JSON به structهای Go تبدیل می‌شوند.
+* **Separation of concerns:** Transport، Methods، Dispatch و Runtime از هم جدا هستند.
+* **Production features:** Retry، Rate Limit، Cache، Circuit Breaker و Graceful Shutdown در هسته وجود دارند.
+* **Streaming:** فایل‌ها و multipart بدون نیاز به نگهداری کامل داده در RAM پردازش می‌شوند.
+* **Extensibility:** Middleware و `contrib` امکان افزودن رفتارهای سطح بالاتر را می‌دهند.
+* **Observability:** Logger، API statistics، Bot statistics و Webhook metrics در دسترس هستند.
 
 ---
 
@@ -258,7 +239,6 @@ codemeet-go/
     ├── forcejoin
     ├── gatekeeper
     ├── maintenancemode
-    ├── pagination
     ├── profanityfilter
     ├── vpndetector
     └── warnsystem
@@ -270,11 +250,9 @@ codemeet-go/
 
 ## Typed API
 
-مدل‌های JSON مربوط به Bot API در Package `models` به Typeهای مشخص Go
-تبدیل شده‌اند.
+مدل‌های JSON مربوط به Bot API در Package `models` به Typeهای مشخص Go تبدیل شده‌اند.
 
-این کار باعث می‌شود توسعه‌دهنده به‌جای کار مستقیم با JSON، با Structها و
-Typeهای Go کار کند.
+این کار باعث می‌شود توسعه‌دهنده به‌جای کار مستقیم با JSON، با Structها و Typeهای Go کار کند.
 
 ---
 
@@ -312,8 +290,7 @@ Updates
 Webhook
 ```
 
-این معماری باعث می‌شود استفاده از API برای توسعه‌دهنده ساده‌تر و خواناتر
-باشد.
+این معماری باعث می‌شود استفاده از API برای توسعه‌دهنده ساده‌تر و خواناتر باشد.
 
 ---
 
@@ -321,15 +298,13 @@ Webhook
 
 Dispatcher مسئول دریافت Update و انتقال آن به Handler مناسب است.
 
-کتابخانه برای Dispatcher از Worker Pool استفاده می‌کند و Bot در زمان ساخت
-به‌صورت پیش‌فرض Dispatcher را با `200` Worker ایجاد می‌کند. 
+کتابخانه برای Dispatcher از Worker Pool استفاده می‌کند و Bot در زمان ساخت به‌صورت پیش‌فرض Dispatcher را با Workerهای متعدد ایجاد می‌کند.
 
 ---
 
 ## Middleware
 
-Middleware امکان اضافه کردن رفتارهای مشترک به جریان پردازش Update را فراهم
-می‌کند.
+Middleware امکان اضافه کردن رفتارهای مشترک به جریان پردازش Update را فراهم می‌کند.
 
 نمونه قابلیت‌های Middleware:
 
@@ -367,7 +342,7 @@ bot, err := codemeet.New(
 )
 ```
 
-Burst Rate Limiting نیز قابل تنظیم است. 
+Burst Rate Limiting نیز قابل تنظیم است.
 
 ---
 
@@ -377,8 +352,7 @@ Cache برای نگهداری داده‌های موقت با TTL استفاده
 
 کتابخانه علاوه بر Cache معمولی، `ShardedCache` نیز دارد.
 
-Sharded Cache برای کاهش contention و افزایش concurrency طراحی شده و Cleanup
-با یک Scheduler مرکزی انجام می‌شود. 
+Sharded Cache برای کاهش contention و افزایش concurrency طراحی شده است.
 
 ---
 
@@ -394,8 +368,7 @@ CodeMeet Go قابلیت‌های داخلی برای مشاهده وضعیت Bo
 * Webhook Metrics
 * Request ID
 
-Bot آمار `UpdatesProcessed`، `CommandsExecuted`، `MessagesSent` و
-`ErrorsCount` را نیز نگهداری می‌کند. 
+Bot آمار مربوط به Updateها، Commandها، Messageها و Errorها را نیز نگهداری می‌کند.
 
 ---
 
@@ -427,7 +400,7 @@ Bot آمار `UpdatesProcessed`، `CommandsExecuted`، `MessagesSent` و
 * [19 — polling](19_Package_Polling.md)
 * [20 — webhook](20_Package_Webhook.md)
 
-## Bot API Methods
+## Models و API Methods
 
 * [21 — Bot Methods](21_Methods_Bot.md)
 * [22 — Chat Methods](22_Methods_Chat.md)
@@ -435,52 +408,44 @@ Bot آمار `UpdatesProcessed`، `CommandsExecuted`، `MessagesSent` و
 * [24 — Media Methods](24_Methods_Media.md)
 * [25 — Updates and Webhook Methods](25_Methods_Updates_Webhook.md)
 
-## Advanced Features
+## قابلیت‌های پیشرفته و Contrib
 
 * [26 — Reliability, Performance and Observability](26_Reliability_Performance.md)
-
-## Contrib
-
 * [27 — contrib/antilink](27_Contrib_AntiLink.md)
 * [28 — contrib/antispam](28_Contrib_AntiSpam.md)
 * [29 — contrib/forcejoin](29_Contrib_ForceJoin.md)
 * [30 — contrib/gatekeeper](30_Contrib_Gatekeeper.md)
 * [31 — contrib/maintenancemode](31_Contrib_MaintenanceMode.md)
-* [32 — contrib/pagination](32_Contrib_Pagination.md)
-* [33 — contrib/profanityfilter](33_Contrib_ProfanityFilter.md)
-* [34 — contrib/vpndetector](34_Contrib_VPNDetector.md)
-* [35 — contrib/warnsystem](35_Contrib_WarnSystem.md)
+* [32 — contrib/profanityfilter](32_Contrib_ProfanityFilter.md)
+* [33 — contrib/vpndetector](33_Contrib_VPNDetector.md)
+* [34 — contrib/warnsystem](34_Contrib_WarnSystem.md)
 
-## Production
+## توسعه و استفاده واقعی
 
-* [36 — Examples and Production Patterns](36_Examples.md)
-* [37 — Errors and Troubleshooting](37_Errors_and_Troubleshooting.md)
-* [38 — Package Map and API Index](38_API_Index.md)
+* [35 — Examples and Production Patterns](35_Examples.md)
+* [36 — Errors and Troubleshooting](36_Errors_and_Troubleshooting.md)
+* [37 — Package Map and API Index](37_API_Index.md)
 
 ---
 
 # 🧩 Contrib Packages
 
-پکیج‌های `contrib` قابلیت‌های اختیاری و سطح بالاتر هستند که برای ساخت
-Botهای واقعی و Production-oriented ارائه شده‌اند.
+پکیج‌های `contrib` قابلیت‌های اختیاری و سطح بالاتر هستند که برای ساخت Botهای واقعی و Production-oriented ارائه شده‌اند.
 
-آن‌ها بخشی از هسته‌ی اجباری Bot API نیستند و توسعه‌دهنده می‌تواند بر اساس
-نیاز پروژه از آن‌ها استفاده کند.
+آن‌ها بخشی از هسته‌ی اجباری Bot API نیستند و توسعه‌دهنده می‌تواند بر اساس نیاز پروژه از آن‌ها استفاده کند.
 
 | Package           | کاربرد                     |
 | ----------------- | -------------------------- |
 | `antilink`        | تشخیص و کنترل لینک‌ها      |
 | `antispam`        | تشخیص Flood و Spam         |
-| `forcejoin`       | بررسی عضویت کاربر          |
+| `forcejoin`       | بررسی عضویت اجباری         |
 | `gatekeeper`      | Verification / CAPTCHA     |
 | `maintenancemode` | فعال‌سازی حالت Maintenance |
-| `pagination`      | مدیریت Pagination          |
-| `profanityfilter` | فیلتر کلمات نامناسب        |
+| `profanityfilter` | تشخیص کلمات نامناسب        |
 | `vpndetector`     | تشخیص VPN / Proxy          |
 | `warnsystem`      | مدیریت Warning کاربران     |
 
-برای جزئیات implementation و API هر Package به مستندات همان Package
-مراجعه کنید.
+برای جزئیات implementation و API هر Package به مستندات همان Package مراجعه کنید.
 
 ---
 
@@ -488,8 +453,7 @@ Botهای واقعی و Production-oriented ارائه شده‌اند.
 
 CodeMeet Go فقط یک Wrapper ساده برای HTTP API نیست.
 
-این کتابخانه برای استفاده در Botهای واقعی، سرویس‌های طولانی‌مدت و
-Workloadهای concurrent طراحی شده است.
+این کتابخانه برای استفاده در Botهای واقعی، سرویس‌های طولانی‌مدت و Workloadهای concurrent طراحی شده است.
 
 قابلیت‌های Production:
 
@@ -535,9 +499,6 @@ Workloadهای concurrent طراحی شده است.
 
 است.
 
-Webhook در نسخه‌ی فعلی تنظیمات مربوط به Secret Token، محدودیت Header و
-Body، Timeout و HTTPS را در Configuration خود دارد. 
-
 ---
 
 # 📤 Media & File Handling
@@ -566,11 +527,7 @@ Media API شامل قابلیت‌هایی مانند:
 
 است.
 
-برخی از این قابلیت‌ها ممکن است بسته به وضعیت فعلی CodeMeet Bot API در
-نسخه‌ی `1.0.0` فعال یا غیرفعال باشند.
-
-File Download نیز برای جلوگیری از مصرف بیش از حد حافظه با محدودیت اندازه
-انجام می‌شود. 
+برخی از این قابلیت‌ها ممکن است بسته به وضعیت فعلی CodeMeet Bot API در نسخه‌ی `1.0.0` فعال یا غیرفعال باشند.
 
 ---
 
@@ -590,15 +547,11 @@ Message API قابلیت‌های اصلی زیر را پوشش می‌دهد:
 * Reply Markup
 * Callback Response
 
-برای مثال، `SendText`، `SendHTML`، `SendMarkdown` و
-`SendWithKeyboard` مستقیماً در `methods.Messages` پیاده‌سازی شده‌اند. 
-
 ---
 
 # 🔄 Polling
 
-Polling برای دریافت Update بدون نیاز به Public Webhook Endpoint استفاده
-می‌شود.
+Polling برای دریافت Update بدون نیاز به Public Webhook Endpoint استفاده می‌شود.
 
 Default Configuration شامل:
 
@@ -611,7 +564,7 @@ Delete Webhook First: true
 Max Retries:         5
 ```
 
-این مقادیر در `polling.DefaultConfig()` تعریف شده‌اند. 
+این مقادیر در `polling.DefaultConfig()` تعریف شده‌اند.
 
 ---
 
@@ -651,8 +604,7 @@ Max Body:       10MB
 defer bot.Close()
 ```
 
-`Close()` اجزای داخلی مانند Cache، Dispatcher، Rate Limiter، API Client و
-Logger را به‌صورت کنترل‌شده می‌بندد. 
+`Close()` اجزای داخلی کتابخانه را به‌صورت کنترل‌شده می‌بندد.
 
 ---
 
@@ -666,7 +618,7 @@ if err := bot.HealthCheck(ctx); err != nil {
 }
 ```
 
-Health Check از `GetMe` برای بررسی وضعیت ارتباط استفاده می‌کند. 
+Health Check برای بررسی وضعیت ارتباط Bot با API استفاده می‌شود.
 
 ---
 
@@ -721,11 +673,9 @@ v1.0.0
 
 # 📌 Documentation Policy
 
-این Documentation با هدف مستندسازی API، معماری و قابلیت‌های موجود در
-نسخه‌ی `1.0.0` تهیه شده است.
+این Documentation با هدف مستندسازی API، معماری و قابلیت‌های موجود در نسخه‌ی `1.0.0` تهیه شده است.
 
-در مواردی که API کتابخانه قابلیت‌هایی را برای نسخه‌های آینده آماده کرده
-باشد، وضعیت آن‌ها در مستندات با برچسب‌هایی مانند:
+در مواردی که API کتابخانه قابلیت‌هایی را برای نسخه‌های آینده آماده کرده باشد، وضعیت آن‌ها در مستندات با برچسب‌هایی مانند:
 
 ```text
 ⚠️ Compatibility Notice
@@ -749,9 +699,7 @@ v1.0.0
 
 CodeMeet Go یک Wrapper ساده‌ی HTTP نیست.
 
-این پروژه یک SDK لایه‌بندی‌شده برای ساخت Botهای CodeMeet است که از لایه‌ی
-Transport و API Client شروع می‌شود و تا Dispatcher، Runtime Services،
-Middleware و ابزارهای Production ادامه پیدا می‌کند.
+این پروژه یک SDK لایه‌بندی‌شده برای ساخت Botهای CodeMeet است که از لایه‌ی Transport و API Client شروع می‌شود و تا Dispatcher، Runtime Services، Middleware و ابزارهای Production ادامه پیدا می‌کند.
 
 ```text
 CodeMeet Bot API
@@ -789,4 +737,5 @@ Health Check
 ```
 
 > **CodeMeet Go v1.0.0 — Built for CodeMeet Bot Development in Go.**
+
 
