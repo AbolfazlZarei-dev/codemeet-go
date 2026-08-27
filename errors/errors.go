@@ -1,7 +1,7 @@
 package errors
 
 import (
-	stderrors "errors" // آلیاس برای جلوگیری از تداخل با نام پکیج محلی
+	stderrors "errors"
 	"fmt"
 	"strconv"
 	"strings"
