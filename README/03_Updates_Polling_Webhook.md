@@ -1,74 +1,88 @@
+# دریافت Update: Polling و Webhook
 
+Update رویداد ورودی ربات است. کتابخانه دو مسیر اصلی برای دریافت آن دارد.
 
-# ۳. دریافت رویدادها (Polling & Webhook)
+## Long Polling
 
-برای اینکه ربات شما از تعامل کاربران (ارسال پیام، کلیک روی دکمه‌ها و ...) مطلع شود، دو روش استاندارد وجود دارد: Long Polling و Webhook.
-
-## روش Long Polling
-این روش مناسب برای توسعه محلی (Local) و سرورهای بدون دامنه عمومی است. ربات به‌صورت دوره‌ای از سرور کدمیت درخواست رویدادهای جدید می‌کند.
+برای شروع ساده یا محیطی که Endpoint عمومی ندارد:
 
 ```go
-ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt)
-defer cancel()
-
-// تنظیمات پیش‌فرض دارای محدودیت‌های محتاطانه برای جلوگیری از خطای 429 است
-cfg := polling.DefaultConfig() 
-cfg.Timeout = 10 // ثانیه
-
-if err := bot.StartPolling(ctx, cfg); err != nil {
-    log.Fatal(err)
-}
+cfg := polling.DefaultConfig()
+err := bot.StartPolling(context.Background(), cfg)
 ```
 
-## روش Webhook
-برای محیط‌های پروداکشن با ترافیک بالا، استفاده از Webhook بهترین انتخاب است. سرور کدمیت به‌محض وقوع رویداد، آن را به سرور شما ارسال می‌کند. (نیازمند سرور با HTTPS است)
+تنظیمات اصلی Polling:
+
+| گزینه | مقدار پیش‌فرض |
+|---|---:|
+| Timeout | 10 ثانیه |
+| PollInterval | 2 ثانیه |
+| Limit | 100 |
+| BufferSize | 1000 |
+| DeleteWebhookFirst | true |
+| MaxRetries | 5 |
+
+Polling از `getUpdates` استفاده می‌کند و offset را برای جلوگیری از پردازش تکراری Updateها نگه می‌دارد.
+
+## Webhook
+
+برای Production می‌توان HTTP Server داخلی کتابخانه را اجرا کرد:
 
 ```go
-whCfg := webhook.DefaultConfig()
-whCfg.ListenAddr = ":8443"
-whCfg.Path = "/webhook"
-whCfg.SecretToken = "my_super_secret_token" // برای امنیت سرور شما الزامی است
+cfg := webhook.DefaultConfig()
+cfg.ListenAddr = ":8443"
+cfg.Path = "/webhook"
+cfg.SecretToken = "YOUR_SECRET"
 
-// ثبت وب‌هوک در سرور کدمیت
-bot.SetWebhook(ctx, "https://yourdomain.com:8443/webhook", whCfg.SecretToken)
-
-// اجرای سرور وب‌هوک
-if err := bot.StartWebhook(ctx, whCfg); err != nil {
-    log.Fatal(err)
-}
+err := bot.StartWebhook(context.Background(), cfg)
 ```
 
-## روتر رویدادها (Dispatcher)
-شما می‌توانید با استفاده از `Dispatcher` برای انواع مختلف رویدادها هندلر (مدیریت‌کننده) ثبت کنید:
+تنظیمات Webhook شامل Listen Address، Path، Secret Token، timeoutهای HTTP، محدودیت Header/Body و در صورت نیاز TLS است.
+
+## امنیت Webhook
+
+اگر `SecretToken` تنظیم شده باشد، سرور Header زیر را بررسی می‌کند:
+
+```text
+X-CodeMeet-Bot-Api-Secret-Token
+```
+
+مقایسه‌ی Secret با `subtle.ConstantTimeCompare` انجام می‌شود.
+
+Body نیز با `http.MaxBytesReader` محدود می‌شود؛ مقدار پیش‌فرض `MaxBodySize` برابر 10MB است.
+
+## Health و Metrics
+
+Webhook Server دو endpoint داخلی دارد:
+
+```text
+/health
+/metrics
+```
+
+`/health` وضعیت ساده‌ی `ok` می‌دهد و `/metrics` تعداد request و error را برمی‌گرداند.
+
+## مدل Update
+
+Update می‌تواند شامل مواردی مانند:
+
+- `message`
+- `callback_query`
+- `my_chat_member`
+- `chat_join_request`
+
+باشد.
+
+Helperهایی مانند `EffectiveMessage` و `EffectiveChat` برای استخراج پیام یا چت موثر وجود دارند.
+
+## Handler
+
+برای Command:
 
 ```go
-// هندلر پیام‌های متنی و رسانه‌ای
-bot.OnMessage(func(ctx context.Context, msg *models.Message) {
-    // کدهای شما
-})
-
-// هندلر دستورات (مثلاً /start)
 bot.OnCommand("start", func(ctx context.Context, msg *models.Message) {
-    // کدهای شما
-})
-
-// هندلر کلیک روی دکمه‌های شیشه‌ای (Callback Query)
-bot.OnCallback(func(ctx context.Context, cq *models.CallbackQuery) {
-    // کدهای شما
-})
-
-// هندلر تطبیق متن دقیق
-bot.OnText("سلام", func(ctx context.Context, msg *models.Message) {
-    // کدهای شما
-})
-
-// هندلر Regex
-bot.OnRegex(`^/help (\d+)$`, func(ctx context.Context, msg *models.Message, matches []string) {
-    // کدهای شما
-})
-
-// هندلر پیش‌فرض (Fallback) - وقتی هیچ هندلری با رویداد تطابق ندارد اجرا می‌شود
-bot.Fallback(func(ctx context.Context, u *models.Update) {
-    bot.Send(ctx, u.EffectiveChat().ID, "دستور نامشخص است!")
+    bot.Reply(ctx, msg, "خوش آمدید")
 })
 ```
+
+برای پردازش عمومی Update نیز Dispatcher و Middleware قابل استفاده هستند.

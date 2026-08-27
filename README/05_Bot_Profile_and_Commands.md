@@ -1,46 +1,94 @@
+# پروفایل و دستورات Bot
 
-# ۵. تنظیمات بات و دستورات
+`BotMethods` مدیریت هویت، نام، توضیحات و Commandهای ربات را ساده می‌کند.
 
-مدیریت پروفایل بات (نام، توضیحات، بیوگرافی) و منوی دستورات (Commands Menu) از طریق `bot.API().Bot()` انجام می‌شود.
+## اطلاعات Bot
 
-## دریافت اطلاعات بات (GetMe)
-توجه: این متد به‌صورت خودکار در سیستم کش (Cache) ذخیره می‌شود تا درخواست‌های اضافی به سرور ارسال نشود و سرعت بالایی داشته باشد.
 ```go
-me, _ := bot.API().Bot().GetMe(ctx)
-fmt.Println("Bot Name:", me.FullName())
-fmt.Println("Bot Username:", me.Username)
+me, err := bot.API().Bot().GetMe(ctx)
 ```
 
-## مدیریت نام و توضیحات
-شما می‌توانید نام نمایشی ربات و متنی که کاربران قبل از زدن دکمه Start می‌بینند را تغییر دهید:
+همچنین سطح Bot دارای `GetMe` با cache و singleflight است تا درخواست‌های همزمان غیرضروری کاهش پیدا کنند.
+
+## نام Bot
 
 ```go
-// تنظیم نام نمایشی (حداکثر ۱۰۰ کاراکتر)
-bot.API().Bot().SetName(ctx, "ربات تستی من")
-
-// تنظیم توضیحات (متن قبل از زدن Start - حداکثر ۵۱۲ کاراکتر)
-bot.API().Bot().SetDescription(ctx, "این ربات برای تست ساخته شده است.")
-
-// تنظیم بیوگرافی (About - حداکثر ۱۲۰ کاراکتر)
-bot.API().Bot().SetShortDescription(ctx, "تست‌کننده ربات‌های کدمیت")
+err := bot.API().Bot().SetName(ctx, "دستیار کدمیت")
 ```
 
-## مدیریت دستورات (Commands)
-شما می‌توانید دستوراتی که کاربران با زدن `/` در منوی کدمیت می‌بینند را تنظیم کنید. این بخش از زبان‌های مختلف (Language Code) پشتیبانی کامل می‌کند.
+دریافت:
 
 ```go
-cmds := []models.BotCommand{
-    {Command: "start", Description: "شروع کار با ربات"},
-    {Command: "help", Description: "دریافت راهنما"},
-    {Command: "support", Description: "ارتباط با پشتیبانی"},
+name, err := bot.API().Bot().GetName(ctx)
+```
+
+نسخه‌ی language-aware:
+
+```go
+name, err := bot.API().Bot().GetNameWithLang(ctx, "fa")
+```
+
+## Description
+
+```go
+err := bot.API().Bot().SetDescription(
+    ctx,
+    "این ربات دستیار شماست.",
+)
+```
+
+برای زبان مشخص:
+
+```go
+err := bot.API().Bot().SetDescriptionWithLang(
+    ctx,
+    "توضیحات فارسی",
+    "fa",
+)
+```
+
+## Short Description
+
+```go
+err := bot.API().Bot().SetShortDescription(
+    ctx,
+    "پشتیبانی و خدمات هوشمند",
+)
+```
+
+## Commands
+
+```go
+commands := []models.BotCommand{
+    {Command: "start", Description: "شروع"},
+    {Command: "help", Description: "راهنما"},
 }
 
-// تنظیم دستورات برای زبان فارسی
-bot.API().Bot().SetCommands(ctx, cmds, "fa")
+err := bot.API().Bot().SetCommands(ctx, commands, "fa")
+```
 
-// دریافت دستورات ثبت شده برای زبان فارسی
-savedCmds, _ := bot.API().Bot().GetCommands(ctx, "fa")
+دریافت:
 
-// حذف دستورات زبان فارسی
-bot.API().Bot().DeleteCommands(ctx, "fa")
+```go
+commands, err := bot.API().Bot().GetCommands(ctx, "fa")
+```
 
+حذف:
+
+```go
+err := bot.API().Bot().DeleteCommands(ctx, "fa")
+```
+
+## عملیات سرویس
+
+`BotMethods` متدهای `LogOut` و `Close` را نیز در اختیار می‌گذارد که نتیجه‌ی Boolean برمی‌گردانند.
+
+## Helperهای سطح Bot
+
+```go
+bot.OnCommand("help", func(ctx context.Context, msg *models.Message) {
+    bot.Reply(ctx, msg, "راهنمای ربات")
+})
+```
+
+این helperها ثبت handler و آمار اجرای command را با لایه‌ی داخلی Dispatcher هماهنگ می‌کنند.

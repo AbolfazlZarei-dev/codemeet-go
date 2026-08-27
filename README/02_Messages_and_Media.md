@@ -1,62 +1,134 @@
+# پیام و رسانه
 
+لایه‌ی `methods.Messages` برای عملیات پیام و `methods.Media` برای ارسال رسانه طراحی شده است.
 
-# ۲. مدیریت پیام‌ها و رسانه‌ها
-
-تمام متدهای ارسال محتوا از طریق `bot.API()` در دسترس هستند. این بخش شامل ارسال متن، عکس، ویدیو، فایل، ویرایش پیام و مدیریت کیبوردها است.
-
-## ارسال پیام متنی
-شما می‌توانید پیام‌های ساده، فرمت‌دار (HTML یا Markdown) و همراه با کیبورد ارسال کنید:
+## ارسال پیام
 
 ```go
-// ارسال متن ساده
-bot.API().Messages().SendText(ctx, chatID, "سلام!")
-
-// ارسال متن با فرمت HTML
-bot.API().Messages().SendHTML(ctx, chatID, "<b>متن ضخیم</b> و <code>کد</code>")
-
-// ارسال با کیبورد شیشه‌ای (InlineKeyboard)
-keyboard := models.NewInlineKeyboard(
-    models.InlineRow(
-        models.Btn("تایید", "confirm_yes"),
-        models.URLBtn("وب‌سایت", "https://codemeet.chat"),
-    ),
+_, err := bot.API().Messages().SendText(
+    ctx,
+    chatID,
+    "سلام!",
 )
-bot.API().Messages().SendWithKeyboard(ctx, chatID, "یک گزینه انتخاب کنید:", keyboard)
 ```
 
-## ارسال رسانه (عکس، ویدیو، فایل)
-کتابخانه به‌صورت هوشمند تشخیص می‌دهد که اگر مسیر فایل محلی (مثل `/path/to/img.jpg`) دادید، آن را به‌صورت Multipart آپلود می‌کند و اگر آیدی فایل (media_id) دادید، به‌صورت JSON ارسال می‌کند.
+برای HTML:
 
 ```go
-// ارسال عکس از روی هارد دیسک با کپشن
-bot.API().Media().SendPhoto(ctx, chatID, "/path/to/image.jpg", "توضیحات عکس")
+_, err := bot.API().Messages().SendHTML(
+    ctx,
+    chatID,
+    "<b>سلام</b>",
+)
+```
 
-// ارسال فایل با پارامترهای کامل (ریپلای و کیبورد)
-req := &methods.SendPhotoRequest{
+برای MarkdownV2:
+
+```go
+_, err := bot.API().Messages().SendMarkdown(
+    ctx,
+    chatID,
+    "*سلام*",
+)
+```
+
+برای کنترل کامل:
+
+```go
+req := &methods.SendMessageRequest{
     ChatID:           chatID,
-    Photo:            "/path/to/doc.pdf",
-    Caption:          "فایل شما آماده دانلود است",
-    ReplyToMessageID: receivedMsgID,
-    ReplyMarkup:      keyboard,
+    Text:             "پیام",
+    ParseMode:        models.ParseModeHTML,
+    ReplyToMessageID: 25,
+    DisableNotification: true,
 }
-bot.API().Media().SendPhotoWithParams(ctx, req)
+
+msg, err := bot.API().Messages().Send(ctx, req)
 ```
 
-## ویرایش و حذف پیام
-ربات‌ها می‌توانند پیام‌هایی که خودشان ارسال کرده‌اند را ویرایش یا حذف کنند:
+فیلدهای اصلی SendMessageRequest شامل `chat_id`، `text`، `parse_mode`، `entities`، `reply_to_message_id`، `disable_notification`، `protect_content` و `reply_markup` هستند.
+
+## رسانه
+
+کتابخانه برای ارسال عکس، ویدیو، سند و Voice از multipart و streaming استفاده می‌کند. فایل‌ها می‌توانند از مسیر فایل محلی ارسال شوند.
+
+نمونه‌ی ساده:
 
 ```go
-// ویرایش متن پیام (با حفظ فرمت HTML)
-bot.API().Messages().EditText(ctx, chatID, msgID, "متن جدید ویرایش شده", models.ParseModeHTML, nil)
-
-// ویرایش کیبورد شیشه‌ای یک پیام بدون تغییر متن آن
-bot.API().Messages().EditReplyMarkup(ctx, chatID, msgID, newKeyboard)
-
-// حذف پیام
-bot.API().Messages().Delete(ctx, chatID, msgID)
-
-// پاسخ به کلیک دکمه شیشه‌ای (Callback Query)
-// اگر showAlert برابر true باشد پیام به‌صورت پاپ‌آپ (Alert) نمایش داده می‌شود
-bot.API().Messages().AnswerCallbackSimple(ctx, callbackQueryID, "دکمه کلیک شد!", false)
+_, err := bot.API().Media().SendPhoto(
+    ctx,
+    chatID,
+    "./photo.jpg",
+    "تصویر جدید",
+)
 ```
 
+در لایه‌ی API، multipart با `io.Pipe` ساخته می‌شود و فایل با `io.Copy` به request stream می‌شود.
+
+## Forward و Copy
+
+```go
+_, err := bot.API().Messages().Forward(
+    ctx,
+    destinationChatID,
+    sourceChatID,
+    messageID,
+)
+```
+
+کپی پیام بدون برچسب Forward:
+
+```go
+_, err := bot.API().Messages().Copy(
+    ctx,
+    destinationChatID,
+    sourceChatID,
+    messageID,
+    "کپشن جدید",
+)
+```
+
+## ویرایش
+
+متدهای اصلی:
+
+- `EditText`
+- `EditTextInline`
+- `EditCaption`
+- `EditReplyMarkup`
+
+مثال:
+
+```go
+err := bot.API().Messages().EditText(
+    ctx,
+    chatID,
+    messageID,
+    "وضعیت: تکمیل شد",
+    models.ParseModeHTML,
+    nil,
+)
+```
+
+## حذف
+
+```go
+err := bot.API().Messages().Delete(ctx, chatID, messageID)
+```
+
+برای حذف چند پیام نیز `DeleteMessages` وجود دارد.
+
+## پاسخ به Callback
+
+```go
+err := bot.AnswerCallback(
+    ctx,
+    callbackID,
+    "انجام شد",
+    true,
+)
+```
+
+## Chat Action
+
+Bot API برای نمایش وضعیت‌هایی مثل typing و upload action متد `sendChatAction` را ارائه می‌کند.
