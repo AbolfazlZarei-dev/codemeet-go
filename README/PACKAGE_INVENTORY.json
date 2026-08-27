@@ -1,0 +1,841 @@
+[
+  {
+    "package": "api",
+    "types": [
+      "countReader",
+      "Client",
+      "Stats",
+      "StatsSnapshot",
+      "CircuitBreaker",
+      "requestIDKey"
+    ],
+    "functions": [
+      "Read",
+      "Record",
+      "AvgLatency",
+      "Snapshot",
+      "NewCircuitBreaker",
+      "Allow",
+      "RecordSuccess",
+      "RecordFailure",
+      "State",
+      "NewClient",
+      "SetHTTPClient",
+      "SetTimeout",
+      "Stats",
+      "StatsSnapshot",
+      "Breaker",
+      "UserAgent",
+      "buildURL",
+      "DownloadFile",
+      "doRequest",
+      "RequestWithParams",
+      "Request",
+      "RequestWithMultipart",
+      "RequestWithForm",
+      "Close",
+      "WithRequestID",
+      "GetRequestID",
+      "detectContentType",
+      "lowerExt",
+      "truncate"
+    ]
+  },
+  {
+    "package": "api",
+    "types": [
+      "Response"
+    ],
+    "functions": [
+      "Decode",
+      "AsBool",
+      "ParametersAsRetryAfter"
+    ]
+  },
+  {
+    "package": "cache",
+    "types": [
+      "Cache",
+      "item",
+      "ShardedCache"
+    ],
+    "functions": [
+      "New",
+      "newCacheInternal",
+      "Get",
+      "Set",
+      "SetWithTTL",
+      "SetForever",
+      "Delete",
+      "Len",
+      "Keys",
+      "Clear",
+      "GetOrSet",
+      "GetOrSetWithTTL",
+      "cleanupLoop",
+      "cleanup",
+      "Close",
+      "NewSharded",
+      "getShard",
+      "Get",
+      "Set",
+      "SetWithTTL",
+      "SetForever",
+      "Delete",
+      "GetOrSet",
+      "GetOrSetWithTTL",
+      "Len",
+      "Keys",
+      "Clear",
+      "cleanupLoop",
+      "Close",
+      "fnv32"
+    ]
+  },
+  {
+    "package": "codemeet",
+    "types": [
+      "Cache",
+      "DashboardWriter",
+      "Bot",
+      "botStats"
+    ],
+    "functions": [
+      "Write",
+      "GetLogs",
+      "WithBaseURL",
+      "WithHTTPClient",
+      "WithTimeout",
+      "WithRetry",
+      "WithRateLimit",
+      "WithRateLimitBurst",
+      "WithCache",
+      "WithShardedCache",
+      "WithLogger",
+      "WithDashboardAuth",
+      "WithMiddleware",
+      "New",
+      "API",
+      "Dispatcher",
+      "Cache",
+      "Logger",
+      "RateLimiter",
+      "RetryPolicy",
+      "Token",
+      "BaseURL",
+      "StartPolling",
+      "StartWebhook",
+      "setRunMode",
+      "printStartupBanner",
+      "authMiddleware",
+      "isValidSession",
+      "handleLogin",
+      "handleLogout",
+      "generateToken",
+      "StartDashboard",
+      "RunMode",
+      "SetWebhook",
+      "DeleteWebhook",
+      "GetMe",
+      "ResetMe",
+      "OnCommand",
+      "OnMessage",
+      "OnCallback",
+      "OnText",
+      "OnRegex",
+      "Fallback",
+      "Use",
+      "Send",
+      "SendHTML",
+      "SendWithKeyboard",
+      "Reply",
+      "AnswerCallback",
+      "Close",
+      "HealthCheck",
+      "Stats",
+      "Uptime",
+      "WithoutLogger"
+    ]
+  },
+  {
+    "package": "codemeet",
+    "types": [],
+    "functions": []
+  },
+  {
+    "package": "dispatcher",
+    "types": [
+      "dispatchTask",
+      "Dispatcher",
+      "dispatchStats",
+      "regexHandler",
+      "textHandler"
+    ],
+    "functions": [
+      "New",
+      "worker",
+      "Use",
+      "Handle",
+      "OnMessage",
+      "OnCallback",
+      "OnCommand",
+      "OnText",
+      "Fallback",
+      "Dispatch",
+      "debugStack",
+      "matchHandler",
+      "applyMiddlewares",
+      "Stop",
+      "OnRegex",
+      "Stats"
+    ]
+  },
+  {
+    "package": "errors",
+    "types": [
+      "APIError",
+      "ValidationError",
+      "NetworkError",
+      "retryableErr",
+      "MultiError"
+    ],
+    "functions": [
+      "Error",
+      "IsRetryable",
+      "Error",
+      "NewValidationError",
+      "Error",
+      "Unwrap",
+      "IsRetryable",
+      "NewNetworkError",
+      "IsRetryable",
+      "ParseError",
+      "extractRetryAfter",
+      "Error",
+      "Unwrap",
+      "Add",
+      "HasError",
+      "AsAPIError",
+      "AsNetworkError",
+      "AsValidationError"
+    ]
+  },
+  {
+    "package": "logger",
+    "types": [
+      "Logger",
+      "logEntry"
+    ],
+    "functions": [
+      "String",
+      "ColorString",
+      "enableWindowsANSI",
+      "init",
+      "New",
+      "NewJSON",
+      "NewAsync",
+      "SetIncludeCaller",
+      "SetEnabled",
+      "IsEnabled",
+      "SetOutput",
+      "SetLevel",
+      "SetFormat",
+      "WithFields",
+      "log",
+      "asyncWriter",
+      "write",
+      "writeText",
+      "writeJSON",
+      "shortFile",
+      "Debug",
+      "Info",
+      "Warn",
+      "Error",
+      "Fatal",
+      "Close",
+      "Sync",
+      "Output"
+    ]
+  },
+  {
+    "package": "methods",
+    "types": [
+      "BotMethods"
+    ],
+    "functions": [
+      "newBotMethods",
+      "GetMe",
+      "SetName",
+      "GetName",
+      "GetNameWithLang",
+      "SetDescription",
+      "SetDescriptionWithLang",
+      "GetDescription",
+      "GetDescriptionWithLang",
+      "SetShortDescription",
+      "SetShortDescriptionWithLang",
+      "GetShortDescription",
+      "GetShortDescriptionWithLang",
+      "SetCommands",
+      "GetCommands",
+      "DeleteCommands",
+      "LogOut",
+      "Close"
+    ]
+  },
+  {
+    "package": "methods",
+    "types": [
+      "ChatMethods"
+    ],
+    "functions": [
+      "newChatMethods",
+      "GetChat",
+      "GetChatMember",
+      "GetChatAdministrators",
+      "GetChatMemberCount",
+      "PinMessage",
+      "UnpinMessage",
+      "UnpinAllMessages",
+      "BanChatMember",
+      "UnbanChatMember",
+      "RestrictChatMember",
+      "PromoteChatMember",
+      "SetChatAdministratorCustomTitle",
+      "SetChatTitle",
+      "SetChatDescription",
+      "SetChatPhoto",
+      "DeleteChatPhoto",
+      "SetChatPermissions",
+      "LeaveChat",
+      "ExportChatInviteLink",
+      "CreateChatInviteLink",
+      "EditChatInviteLink",
+      "RevokeChatInviteLink"
+    ]
+  },
+  {
+    "package": "methods",
+    "types": [
+      "Media",
+      "SendPhotoRequest",
+      "SendMediaGroupRequest",
+      "SendLocationRequest",
+      "SendVenueRequest",
+      "SendContactRequest",
+      "SendPollRequest"
+    ],
+    "functions": [
+      "newMedia",
+      "SendPhoto",
+      "SendPhotoWithParams",
+      "SendVideo",
+      "SendDocument",
+      "SendVoice",
+      "SendAudio",
+      "SendAnimation",
+      "SendSticker",
+      "SendVideoNote",
+      "sendMediaFile",
+      "SendMediaGroup",
+      "SendLocation",
+      "SendVenue",
+      "SendContact",
+      "SendPoll",
+      "SendDice",
+      "GetStickerSet",
+      "UploadStickerFile",
+      "GetFile",
+      "DownloadFile",
+      "SetMessageReaction"
+    ]
+  },
+  {
+    "package": "methods",
+    "types": [
+      "Messages",
+      "SendMessageRequest",
+      "CopyMessageResult"
+    ],
+    "functions": [
+      "newMessages",
+      "Send",
+      "SendText",
+      "SendHTML",
+      "SendMarkdown",
+      "SendWithKeyboard",
+      "Forward",
+      "Copy",
+      "EditText",
+      "EditTextInline",
+      "EditCaption",
+      "EditReplyMarkup",
+      "Delete",
+      "DeleteMessages",
+      "SendChatAction",
+      "AnswerCallback",
+      "AnswerCallbackSimple",
+      "SetMyDescription",
+      "doWithRetry",
+      "doWithRetryMultipart",
+      "ParseError"
+    ]
+  },
+  {
+    "package": "methods",
+    "types": [
+      "Methods"
+    ],
+    "functions": [
+      "New",
+      "Messages",
+      "Media",
+      "Bot",
+      "Chat",
+      "Webhook",
+      "Updates",
+      "Client"
+    ]
+  },
+  {
+    "package": "methods",
+    "types": [
+      "UpdatesMethods",
+      "GetUpdatesParams"
+    ],
+    "functions": [
+      "newUpdatesMethods",
+      "Get"
+    ]
+  },
+  {
+    "package": "methods",
+    "types": [
+      "WebhookMethods"
+    ],
+    "functions": [
+      "newWebhookMethods",
+      "Set",
+      "GetInfo",
+      "Delete",
+      "DeleteWithDrop"
+    ]
+  },
+  {
+    "package": "middleware",
+    "types": [
+      "MetricsCounter"
+    ],
+    "functions": [
+      "Recovery",
+      "Logging",
+      "RateLimit",
+      "NewMetricsCounter",
+      "Inc",
+      "Snapshot",
+      "Metrics",
+      "Timeout",
+      "BotOnly",
+      "UserOnly",
+      "AdminOnly",
+      "Blacklist",
+      "Whitelist"
+    ]
+  },
+  {
+    "package": "models",
+    "types": [
+      "BotName",
+      "BotDescription",
+      "BotShortDescription",
+      "BotCommand",
+      "SetCommandsRequest",
+      "BotCommandScope"
+    ],
+    "functions": []
+  },
+  {
+    "package": "models",
+    "types": [
+      "CallbackQuery",
+      "AnswerCallbackRequest"
+    ],
+    "functions": []
+  },
+  {
+    "package": "models",
+    "types": [
+      "Chat",
+      "ChatMember",
+      "ChatPermissions",
+      "ChatAdministratorRights",
+      "ChatPhoto",
+      "ChatInviteLink",
+      "CreateChatInviteLinkRequest",
+      "EditChatInviteLinkRequest"
+    ],
+    "functions": [
+      "IsPrivate",
+      "IsGroup",
+      "IsChannel",
+      "IsSupergroup"
+    ]
+  },
+  {
+    "package": "models",
+    "types": [
+      "InlineKeyboardMarkup",
+      "InlineKeyboardButton",
+      "WebAppInfo",
+      "LoginURL",
+      "ReplyKeyboardMarkup",
+      "KeyboardButton",
+      "KeyboardButtonPollType",
+      "ReplyKeyboardRemove",
+      "ForceReply"
+    ],
+    "functions": [
+      "NewInlineKeyboard",
+      "InlineRow",
+      "Btn",
+      "URLBtn",
+      "WebAppBtn",
+      "SwitchInlineBtn",
+      "NewReplyKeyboard",
+      "ReplyRow",
+      "KBtn",
+      "ContactBtn",
+      "LocationBtn"
+    ]
+  },
+  {
+    "package": "models",
+    "types": [
+      "Message",
+      "MessageEntity",
+      "PhotoSize",
+      "Video",
+      "Audio",
+      "Document",
+      "Animation",
+      "Voice",
+      "VideoNote",
+      "Contact",
+      "Location",
+      "Venue",
+      "Poll",
+      "PollOption",
+      "Dice",
+      "Sticker",
+      "StickerSet",
+      "File",
+      "InputMedia",
+      "ReactionType"
+    ],
+    "functions": [
+      "HasMedia",
+      "IsCommand",
+      "CommandName",
+      "CommandArgs",
+      "MarshalJSON"
+    ]
+  },
+  {
+    "package": "models",
+    "types": [
+      "Update",
+      "ChatMemberUpdated",
+      "ChatJoinRequest"
+    ],
+    "functions": [
+      "Type",
+      "EffectiveMessage",
+      "EffectiveUser",
+      "EffectiveChat"
+    ]
+  },
+  {
+    "package": "models",
+    "types": [
+      "User"
+    ],
+    "functions": [
+      "IsUser",
+      "FullName",
+      "Mention",
+      "HTMLMention"
+    ]
+  },
+  {
+    "package": "models",
+    "types": [
+      "SetWebhookRequest",
+      "WebhookInfo"
+    ],
+    "functions": []
+  },
+  {
+    "package": "polling",
+    "types": [
+      "Config",
+      "Poller"
+    ],
+    "functions": [
+      "DefaultConfig",
+      "New",
+      "Start",
+      "Offset",
+      "ResetOffset"
+    ]
+  },
+  {
+    "package": "ratelimit",
+    "types": [
+      "Limiter",
+      "ConcurrencyLimiter"
+    ],
+    "functions": [
+      "New",
+      "NewWithBurst",
+      "refillLoop",
+      "Wait",
+      "TryWait",
+      "WaitTimeout",
+      "Available",
+      "Rate",
+      "Total",
+      "Dropped",
+      "Close",
+      "NewConcurrencyLimiter",
+      "Acquire",
+      "Release"
+    ]
+  },
+  {
+    "package": "retry",
+    "types": [
+      "Policy"
+    ],
+    "functions": [
+      "DefaultPolicy",
+      "AggressivePolicy",
+      "ConservativePolicy",
+      "Do",
+      "calcDelay"
+    ]
+  },
+  {
+    "package": "webhook",
+    "types": [
+      "Config",
+      "Server"
+    ],
+    "functions": [
+      "DefaultConfig",
+      "New",
+      "handleWebhook",
+      "healthCheck",
+      "metrics",
+      "Start",
+      "Stats"
+    ]
+  },
+  {
+    "package": "antilink",
+    "types": [
+      "Config",
+      "AntiLink"
+    ],
+    "functions": [
+      "DefaultConfig",
+      "New",
+      "Middleware",
+      "block",
+      "isAllowedURL",
+      "isAllowedHost",
+      "hasAllowedTelegramDomain",
+      "normalizeDomain"
+    ]
+  },
+  {
+    "package": "antispam",
+    "types": [
+      "Config",
+      "userState",
+      "stats",
+      "AntiSpam"
+    ],
+    "functions": [
+      "DefaultConfig",
+      "New",
+      "cleanupLoop",
+      "cleanup",
+      "hash",
+      "getState",
+      "BanUser",
+      "UnbanUser",
+      "Stats",
+      "Middleware",
+      "extractUserData",
+      "findSpamKeyword",
+      "rateLimitExceeded",
+      "addWarningLocked",
+      "executeBan"
+    ]
+  },
+  {
+    "package": "forcejoin",
+    "types": [
+      "Config",
+      "userCache",
+      "stats",
+      "ForceJoin"
+    ],
+    "functions": [
+      "DefaultConfig",
+      "New",
+      "Middleware",
+      "triggerNotJoined",
+      "ClearUserCache",
+      "cleanupLoop",
+      "Stats"
+    ]
+  },
+  {
+    "package": "gatekeeper",
+    "types": [
+      "CaptchaConfig",
+      "Config",
+      "pendingUser",
+      "stats",
+      "challengeJob",
+      "Gatekeeper"
+    ],
+    "functions": [
+      "init",
+      "DefaultConfig",
+      "New",
+      "worker",
+      "Middleware",
+      "SendCaptcha",
+      "SendCaptchaWithConfig",
+      "enqueueChallenge",
+      "sendChallenge",
+      "sendMathCaptcha",
+      "sendNumbersCaptcha",
+      "storeChallenge",
+      "handleButton",
+      "answerCallback",
+      "failChallenge",
+      "cleanupLoop",
+      "cleanup",
+      "Stats",
+      "Close",
+      "makeKey",
+      "randomInt",
+      "buildMathOptions",
+      "buildNumberOptions",
+      "normalizeCaptchaConfig"
+    ]
+  },
+  {
+    "package": "maintenancemode",
+    "types": [
+      "Config",
+      "MaintenanceMode"
+    ],
+    "functions": [
+      "DefaultConfig",
+      "New",
+      "cleanupLoop",
+      "SetEnabled",
+      "IsEnabled",
+      "Stop",
+      "isAdmin",
+      "getUserID",
+      "shouldNotify",
+      "Middleware"
+    ]
+  },
+  {
+    "package": "profanityfilter",
+    "types": [
+      "Config",
+      "ProfanityFilter"
+    ],
+    "functions": [
+      "DefaultConfig",
+      "New",
+      "Middleware",
+      "scanText",
+      "normalizeText",
+      "normalizeBannedWord"
+    ]
+  },
+  {
+    "package": "vpndetector",
+    "types": [
+      "Config",
+      "stats",
+      "VPNDetector"
+    ],
+    "functions": [
+      "DefaultConfig",
+      "New",
+      "VPNDetectorMiddleware",
+      "scoreText",
+      "scoreAPKName",
+      "scoreConfigName",
+      "shouldScanDocument",
+      "isConfigFile",
+      "scanTextFile",
+      "scanContent",
+      "containsEncodedVPN",
+      "checkBase64Candidate",
+      "scanAPK",
+      "scanZIP",
+      "isPotentialConfigEntry",
+      "isImportantAPKEntry",
+      "isTextMIME",
+      "isAPK",
+      "isZIPName",
+      "containsAny",
+      "countAny",
+      "containsBytesAny",
+      "countJSONKeys",
+      "countYAMLMarkers",
+      "containsConfigMarker",
+      "hasHostPortPattern",
+      "looksBinary",
+      "containsStrongBinarySignature",
+      "isBase64Char",
+      "normalizeText",
+      "normalizeBytes",
+      "readLimitedContext",
+      "minInt64",
+      "hasProxyIndicator",
+      "triggerAction",
+      "Stats"
+    ]
+  },
+  {
+    "package": "warnsystem",
+    "types": [
+      "Config",
+      "userWarns",
+      "stats",
+      "WarnSystem"
+    ],
+    "functions": [
+      "DefaultConfig",
+      "New",
+      "getShard",
+      "AddWarning",
+      "ResetWarnings",
+      "GetWarnings",
+      "cleanupLoop",
+      "Stats",
+      "Close"
+    ]
+  }
+]
