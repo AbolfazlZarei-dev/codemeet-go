@@ -85,7 +85,6 @@ func (d *Dispatcher) worker() {
 			}
 
 			handler := d.matchHandler(task.update)
-			// ⭐️ اصلاح اینجا:
 			// اگر هندلری ثبت نشده بود، یک هندلر خالی می‌سازیم
 			// تا میدل‌ورها (مثل Gatekeeper) فرصت اجرا پیدا کنند.
 			if handler == nil {
