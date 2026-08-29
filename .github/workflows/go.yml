@@ -19,7 +19,6 @@ test:
 name: Test
 runs-on: ubuntu-latest
 
-```
 steps:
   - name: Checkout
     uses: actions/checkout@v4
@@ -58,14 +57,12 @@ steps:
 
   - name: Run race detector
     run: go test -race ./...
-```
 
 build:
 name: Build
 runs-on: ubuntu-latest
 needs: test
 
-```
 steps:
   - name: Checkout
     uses: actions/checkout@v4
@@ -81,4 +78,3 @@ steps:
 
   - name: Build
     run: go build -v ./...
-```
