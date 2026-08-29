@@ -85,7 +85,7 @@ type Logger struct {
 	logCh         chan logEntry
 	wg            sync.WaitGroup
 	includeCaller atomic.Bool
-	enabled       atomic.Bool // قابلیت استپ و استارت لاگ‌ها
+	enabled       atomic.Bool
 }
 
 type logEntry struct {
@@ -124,7 +124,7 @@ func New(level Level) *Logger {
 	}
 	l.level.Store(int32(level))
 	l.includeCaller.Store(true)
-	l.enabled.Store(true) // پیش‌فرض لاگ‌ها روشن است
+	l.enabled.Store(true)
 	return l
 }
 
@@ -205,7 +205,6 @@ func (l *Logger) WithFields(fields ...interface{}) *Logger {
 }
 
 func (l *Logger) log(level Level, msg string, fields ...interface{}) {
-	// اگر لاگ‌ها خاموش بودند، هیچ چیزی پردازش نکن
 	if !l.enabled.Load() {
 		return
 	}
