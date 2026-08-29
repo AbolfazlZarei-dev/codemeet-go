@@ -178,7 +178,7 @@ func NewClient(baseURL, token string, log *logger.Logger) *Client {
 		IdleConnTimeout:       120 * time.Second,
 		TLSHandshakeTimeout:   5 * time.Second,
 		ExpectContinueTimeout: 1 * time.Second,
-		ResponseHeaderTimeout: 30 * time.Second,
+		ResponseHeaderTimeout: 90 * time.Second,
 		ForceAttemptHTTP2:     true,
 		DisableCompression:    false,
 		Proxy:                 http.ProxyFromEnvironment,
