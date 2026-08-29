@@ -191,7 +191,7 @@ func UserOnly() MiddlewareFunc {
 	}
 }
 
-// AdminOnly فقط ادمین‌ها (با تابع چک)
+// AdminOnly فقط ادمین‌ها
 func AdminOnly(isAdmin func(userID string) bool) MiddlewareFunc {
 	return func(next HandlerFunc) HandlerFunc {
 		return func(ctx context.Context, u *models.Update) {
