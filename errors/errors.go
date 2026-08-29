@@ -83,7 +83,6 @@ type retryableErr interface {
 	IsRetryable() bool
 }
 
-// IsRetryable اصلاح شده با errors.As استاندارد
 func IsRetryable(err error) bool {
 	if err == nil {
 		return false
