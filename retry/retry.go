@@ -82,7 +82,7 @@ func (p *Policy) Do(ctx context.Context, fn func(ctx context.Context) error) err
 		// اگر خطای 429 بود، از retry_after استفاده کن
 		if apiErr, ok := errors.AsAPIError(err); ok && apiErr.RetryAfter > 0 {
 			wait := time.Duration(apiErr.RetryAfter) * time.Second
-			// اضافه کردن مقدار کمی buffer
+
 			wait += 500 * time.Millisecond
 			select {
 			case <-time.After(wait):
