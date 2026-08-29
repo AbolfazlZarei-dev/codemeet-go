@@ -93,14 +93,12 @@ type Bot struct {
 	activeFeatures []string
 	dashWriter     *DashboardWriter
 
-	// احراز هویت داشبورد
 	dashUser     string
 	dashPass     string
 	dashSessions sync.Map
 
 	getMeSF singleflight.Group
 
-	// آمار داخلی ربات
 	stats botStats
 }
 
@@ -249,7 +247,7 @@ func (b *Bot) StartPolling(ctx context.Context, cfg polling.Config) error {
 	b.setRunMode("Long Polling")
 	b.printStartupBanner(ctx)
 	b.logger.Info("Starting Long Polling...", "timeout", cfg.Timeout, "limit", cfg.Limit)
-	p := polling.New(b.api, b.dispatcher, b.logger, cfg)
+	p := polling.NewWithLimiter(b.api, b.dispatcher, b.logger, cfg, b.rateLimit, b.retry)
 	return p.Start(ctx)
 }
 
@@ -285,6 +283,14 @@ func (b *Bot) printStartupBanner(ctx context.Context) {
 		botUser = "Unknown"
 		if err != nil {
 			b.logger.Error("Failed to fetch bot info for banner", "error", err)
+			if apiErr, ok := errors.AsAPIError(err); ok && apiErr.Code == errors.CodeTooManyRequests {
+				wait := time.Duration(apiErr.RetryAfter) * time.Second
+				if wait < 2*time.Second {
+					wait = 2 * time.Second
+				}
+				b.logger.Warn("Rate limited during startup, waiting before starting polling...", "wait", wait)
+				time.Sleep(wait)
+			}
 		}
 	}
 
