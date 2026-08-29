@@ -85,14 +85,11 @@ func (d *Dispatcher) worker() {
 			}
 
 			handler := d.matchHandler(task.update)
-			// اگر هندلری ثبت نشده بود، یک هندلر خالی می‌سازیم
-			// تا میدل‌ورها (مثل Gatekeeper) فرصت اجرا پیدا کنند.
 			if handler == nil {
 				handler = func(ctx context.Context, u *models.Update) {}
 			}
 			handler = d.applyMiddlewares(handler)
 
-			// اجرای هندلر با Recovery
 			func() {
 				defer func() {
 					if r := recover(); r != nil {
@@ -179,9 +176,7 @@ func (d *Dispatcher) Dispatch(ctx context.Context, update *models.Update) {
 
 	select {
 	case d.taskChan <- task:
-		// با موفقیت در صف قرار گرفت
 	default:
-		// صف پر است! (Drop Policy برای جلوگیری از فرو ریختن سرور)
 		d.stats.totalDropped.Add(1)
 		log.Println("WARNING: Dispatcher queue is full, update dropped")
 	}
