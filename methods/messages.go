@@ -170,7 +170,7 @@ func (m *Messages) SetMyDescription(ctx context.Context, desc, lang string) erro
 	}, nil)
 }
 
-// doWithRetry اجرای درخواست با Retry و Rate Limit (اصلاح شده: Limiter داخل Retry)
+// doWithRetry اجرای درخواست با Retry و Rate Limit
 func (m *Messages) doWithRetry(ctx context.Context, method string, params interface{}, result interface{}) error {
 	doOnce := func(ctx context.Context) error {
 		if m.limiter != nil {
@@ -194,7 +194,7 @@ func (m *Messages) doWithRetry(ctx context.Context, method string, params interf
 	return m.retry.Do(ctx, doOnce)
 }
 
-// doWithRetryMultipart اجرای درخواست multipart با Retry (اصلاح شده: Limiter داخل Retry)
+// doWithRetryMultipart اجرای درخواست multipart با Retry
 func (m *Messages) doWithRetryMultipart(ctx context.Context, method string, fields map[string]string, files map[string]string, result interface{}) error {
 	doOnce := func(ctx context.Context) error {
 		if m.limiter != nil {
