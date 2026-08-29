@@ -101,7 +101,6 @@ func (m *Message) CommandArgs() string {
 	return ""
 }
 
-// ... (بقیه مدل‌ها دقیقاً مثل قبل هستند، از MessageEntity تا انتهای فایل)
 type MessageEntity struct {
 	Type        string `json:"type"`
 	Offset      int    `json:"offset"`
