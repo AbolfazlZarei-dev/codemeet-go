@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"math/rand"
+	"strings"
 	"time"
 
 	"github.com/AbolfazlZarei-dev/codemeet-go/api"
@@ -62,11 +63,39 @@ func New(c *api.Client, d *dispatcher.Dispatcher, log *logger.Logger, cfg Config
 	}
 }
 
+// NewWithLimiter ساخت Poller با استفاده از Limiter مشترک ربات
+func NewWithLimiter(c *api.Client, d *dispatcher.Dispatcher, log *logger.Logger, cfg Config, lim *ratelimit.Limiter, rtry *retry.Policy) *Poller {
+	m := methods.New(c, rtry, lim)
+	return &Poller{
+		api:        c,
+		dispatcher: d,
+		logger:     log,
+		cfg:        cfg,
+		updates:    m.Updates(),
+		webhook:    m.Webhook(),
+	}
+}
+
 func (p *Poller) Start(ctx context.Context) error {
 	if p.cfg.DeleteWebhookFirst {
 		if err := p.webhook.DeleteWithDrop(ctx, true); err != nil {
 			if p.logger != nil {
 				p.logger.Warn("failed to delete existing webhook", "error", err)
+			}
+
+			if apiErr, ok := errors.AsAPIError(err); ok && apiErr.Code == errors.CodeTooManyRequests {
+				wait := time.Duration(apiErr.RetryAfter) * time.Second
+				if wait < 2*time.Second {
+					wait = 2 * time.Second
+				}
+				if p.logger != nil {
+					p.logger.Warn("rate limit hit during delete webhook, waiting...", "wait", wait)
+				}
+				select {
+				case <-time.After(wait):
+				case <-ctx.Done():
+					return ctx.Err()
+				}
 			}
 		} else if p.logger != nil {
 			p.logger.Info("deleted existing webhook before polling")
@@ -99,6 +128,7 @@ func (p *Poller) Start(ctx context.Context) error {
 				p.logger.Error("polling error", "error", err, "retry", p.retries)
 			}
 
+			// بررسی خطای 429
 			if apiErr, ok := errors.AsAPIError(err); ok && apiErr.Code == errors.CodeTooManyRequests {
 				wait := time.Duration(apiErr.RetryAfter) * time.Second
 				if wait < 2*time.Second {
@@ -115,6 +145,20 @@ func (p *Poller) Start(ctx context.Context) error {
 					return ctx.Err()
 				}
 				p.retries = 0
+				continue
+			}
+
+			// بررسی باز شدن Circuit Breaker
+			if strings.Contains(err.Error(), "circuit breaker open") {
+				if p.logger != nil {
+					p.logger.Warn("circuit breaker is open, waiting 35s to reset...", "error", err)
+				}
+				p.retries-- // شمارش ریتری را افزایش نده چون یک محافظت خودکار است
+				select {
+				case <-time.After(35 * time.Second):
+				case <-ctx.Done():
+					return ctx.Err()
+				}
 				continue
 			}
 
