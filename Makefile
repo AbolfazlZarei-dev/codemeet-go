@@ -1,139 +1,85 @@
 # ==========================================
 # CodeMeet Go Library Setup Configuration
 # ==========================================
-
 APP_NAME := codemeet-bot
-VERSION  := 1.0.1
+VERSION  := 1.0.0
 AUTHOR   := Abolfazl Zarei
-GITHUB   := github.com/AbolfazlZarei-dev/codemeet-go
+GITHUB   := github.com/AbolfazlZarei-dev/codemeet
 
 # Go related variables
-GOCMD   := go
+GOCMD := go
 GOBUILD := $(GOCMD) build
-GORUN   := $(GOCMD) run
-GOTEST  := $(GOCMD) test
-GOMOD   := $(GOCMD) mod
-GOFMT   := $(GOCMD) fmt
-GOVET   := $(GOCMD) vet
+GORUN := $(GOCMD) run
+GOTEST := $(GOCMD) test
+GOMOD := $(GOCMD) mod
+GOFMT := $(GOCMD) fmt
+GOVET := $(GOCMD) vet
 
 # ==========================================
 # Targets (Commands)
 # ==========================================
 
-.PHONY: all info deps run build test clean tidy fmt vet check help
+.PHONY: all info deps run build clean tidy fmt vet help
 
 # نمایش اطلاعات پروژه (پیش‌فرض هنگام اجرای make)
 all: info
 
-# ==========================================
 # نمایش اطلاعات کتابخانه
-# ==========================================
-
 info:
-	@echo "--------------------------------------------------"
-	@echo " CodeMeet Go Bot"
-	@echo "--------------------------------------------------"
-	@echo " Name        : $(APP_NAME)"
-	@echo " Version     : v$(VERSION)"
-	@echo " Author      : $(AUTHOR)"
-	@echo " GitHub      : $(GITHUB)"
-	@echo " Go Version  : 1.20+"
-	@echo "--------------------------------------------------"
+    @echo "--------------------------------------------------"
+    @echo " CodeMeet Go Bot Setup"
+    @echo "--------------------------------------------------"
+    @echo " Name        : $(APP_NAME)"
+    @echo " Version     : $(VERSION)"
+    @echo " Author      : $(AUTHOR)"
+    @echo " GitHub      : $(GITHUB)"
+    @echo "--------------------------------------------------"
 
-# ==========================================
-# نصب / دریافت وابستگی‌ها
-# ==========================================
-
+# نصب وابستگی‌ها
 deps:
-	@echo "Downloading dependencies..."
-	$(GOMOD) download
+    @echo "Downloading dependencies..."
+    $(GOMOD) download
 
-# ==========================================
 # مرتب‌سازی وابستگی‌ها
-# ==========================================
-
 tidy:
-	@echo "Tidying up modules..."
-	$(GOMOD) tidy
+    @echo "Tidying up modules..."
+    $(GOMOD) tidy
 
-# ==========================================
-# اجرای ربات نمونه
-# ==========================================
-
+# اجرای مستقیم ربات نمونه
 run:
-	@echo "Running the example bot..."
-	$(GORUN) ./examples
+    @echo "Running the bot..."
+    cd examples && $(GORUN) .
 
-# ==========================================
-# ساخت فایل اجرایی ربات
-# ==========================================
-
+# ساخت فایل اجرایی ربات (خروجی باینری)
 build:
-	@echo "Building the bot binary..."
-	$(GOBUILD) -o ./$(APP_NAME) ./examples
-	@echo "Build successful!"
-	@echo "Output: ./$(APP_NAME)"
+    @echo "Building the bot binary..."
+    cd examples && $(GOBUILD) -o ../$(APP_NAME) .
+    @echo "Build successful! Output: ./$(APP_NAME)"
 
-# ==========================================
-# اجرای تست‌ها
-# ==========================================
-
-test:
-	@echo "Running tests..."
-	$(GOTEST) ./...
-
-# ==========================================
-# بررسی کامل پروژه
-# ==========================================
-
-check:
-	@echo "Running project checks..."
-	$(GOTEST) ./...
-	$(GOVET) ./...
-	@echo "All checks completed successfully!"
-
-# ==========================================
-# پاک کردن فایل‌های ساخته‌شده
-# ==========================================
-
+# پاک کردن فایل‌های باینری اضافی
 clean:
-	@echo "Cleaning up..."
-	$(GOCMD) clean
-	rm -f $(APP_NAME)
-	@echo "Clean completed!"
+    @echo "Cleaning up..."
+    $(GOCMD) clean
+    rm -f $(APP_NAME)
 
-# ==========================================
 # فرمت کردن کدهای Go
-# ==========================================
-
 fmt:
-	@echo "Formatting Go files..."
-	$(GOFMT) ./...
-	@echo "Formatting completed!"
+    @echo "Formatting Go files..."
+    $(GOFMT) ./...
 
-# ==========================================
-# بررسی خطاهای استاتیک
-# ==========================================
-
+# بررسی خطاهای استاتیک کدهای Go
 vet:
-	@echo "Vetting Go files..."
-	$(GOVET) ./...
-	@echo "Vet completed successfully!"
+    @echo "Vetting Go files..."
+    $(GOVET) ./...
 
-# ==========================================
 # راهنمای دستورات
-# ==========================================
-
 help:
-	@echo "Available commands:"
-	@echo ""
-	@echo "  make info   - Show project information"
-	@echo "  make deps   - Download dependencies"
-	@echo "  make tidy   - Clean up go.mod and go.sum"
-	@echo "  make run    - Run the example bot"
-	@echo "  make build  - Build the example bot"
-	@echo "  make test   - Run all tests"
-	@echo "  make check  - Run tests and go vet"
-	@echo "  make clean  - Remove built binaries"
-	@echo "  make fmt    - Format Go code"
-	@echo "  make vet    - Run go vet"
+    @echo "Available commands:"
+    @echo "  make info   - Show project information"
+    @echo "  make deps   - Download dependencies"
+    @echo "  make tidy   - Clean up go.mod and go.sum"
+    @echo "  make run    - Run the example bot directly"
+    @echo "  make build  - Build the bot into an executable"
+    @echo "  make clean  - Remove built binaries"
+    @echo "  make fmt    - Format Go code"
+    @echo "  make vet    - Run go vet for static analysis"
