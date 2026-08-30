@@ -30,7 +30,7 @@ import (
 )
 
 const (
-	Version       = "1.0.0"
+	Version       = "1.0.1"
 	Author        = "Abolfazl Zarei"
 	GitHubProfile = "github.com/AbolfazlZarei-dev"
 	GitHubRepo    = "github.com/AbolfazlZarei-dev/codemeet-go"
