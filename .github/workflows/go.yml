@@ -1,84 +1,81 @@
 name: Go CI
 
 on:
-push:
-branches:
-- main
-pull_request:
-branches:
-- main
+  push:
+    branches:
+      - main
+
+  pull_request:
+    branches:
+      - main
 
 permissions:
-contents: read
+  contents: read
 
 env:
-GO_VERSION: "1.25.0"
+  GO_VERSION: "1.25.0"
 
 jobs:
-test:
-name: Test
-runs-on: ubuntu-latest
+  test:
+    name: Test
+    runs-on: ubuntu-latest
 
-```
-steps:
-  - name: Checkout
-    uses: actions/checkout@v4
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
 
-  - name: Setup Go
-    uses: actions/setup-go@v5
-    with:
-      go-version: ${{ env.GO_VERSION }}
-      cache: true
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          cache: true
 
-  - name: Verify Go version
-    run: go version
+      - name: Verify Go version
+        run: go version
 
-  - name: Download dependencies
-    run: go mod download
+      - name: Download dependencies
+        run: go mod download
 
-  - name: Verify modules
-    run: go mod verify
+      - name: Verify modules
+        run: go mod verify
 
-  - name: Check formatting
-    shell: bash
-    run: |
-      files="$(gofmt -l .)"
+      - name: Check formatting
+        shell: bash
+        run: |
+          files="$(gofmt -l .)"
 
-      if [ -n "$files" ]; then
-        echo "::error::The following files are not formatted:"
-        echo "$files"
-        exit 1
-      fi
+          if [ -n "$files" ]; then
+            echo "::error::The following files are not formatted:"
+            echo "$files"
+            exit 1
+          fi
 
-  - name: Run go vet
-    run: go vet ./...
+      - name: Run go vet
+        run: go vet ./...
 
-  - name: Run tests
-    run: go test -v ./...
+      - name: Run tests
+        run: go test -v ./...
 
-  - name: Run race detector
-    run: go test -race ./...
-```
+      - name: Run race detector
+        run: go test -race ./...
 
-build:
-name: Build
-runs-on: ubuntu-latest
-needs: test
+  build:
+    name: Build
+    runs-on: ubuntu-latest
+    needs: test
 
-```
-steps:
-  - name: Checkout
-    uses: actions/checkout@v4
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
 
-  - name: Setup Go
-    uses: actions/setup-go@v5
-    with:
-      go-version: ${{ env.GO_VERSION }}
-      cache: true
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          cache: true
 
-  - name: Download dependencies
-    run: go mod download
+      - name: Download dependencies
+        run: go mod download
 
-  - name: Build
-    run: go build -v ./...
-```
+      - name: Build
+        run: go build -v ./...
