@@ -35,14 +35,6 @@
 [![Release](https://img.shields.io/github/v/release/AbolfazlZarei-dev/codemeet-go?style=for-the-badge&logo=github&color=3b82f6)](https://github.com/AbolfazlZarei-dev/codemeet-go/releases)
 [![Go Version](https://img.shields.io/github/go-mod/go-version/AbolfazlZarei-dev/codemeet-go?style=for-the-badge&logo=go&color=00ADD8)](https://github.com/AbolfazlZarei-dev/codemeet-go)
 
-<br>
-
-<p>
-  <strong>Current Version: v1.0.1</strong>
-  •
-  <strong>Go 1.20+</strong>
-</p>
-
 </div>
 
 ---
@@ -68,7 +60,7 @@
 
 **CodeMeet Go SDK** یک کتابخانه مدرن و ماژولار برای توسعه ربات‌های پلتفرم **CodeMeet** با زبان Go است.
 
-هدف اصلی این پروژه فراهم کردن یک لایه‌ی قدرتمند، Type-Safe و قابل استفاده در پروژه‌های واقعی روی Bot API کدمیت است؛ به‌طوری که توسعه‌دهنده بتواند بدون درگیر شدن مستقیم با جزئیات HTTP و JSON، ربات‌های سریع، پایدار و قابل توسعه ایجاد کند.
+هدف اصلی این پروژه فراهم کردن یک لایه‌ی قدرتمند، type-safe و قابل استفاده در پروژه‌های واقعی روی Bot API کدمیت است؛ به‌طوری که توسعه‌دهنده بتواند بدون درگیر شدن مستقیم با جزئیات HTTP و JSON، ربات‌های سریع، پایدار و قابل توسعه ایجاد کند.
 
 کتابخانه علاوه بر API اصلی، مجموعه‌ای از ابزارهای زیرساختی و پکیج‌های کمکی را نیز ارائه می‌کند:
 
@@ -119,29 +111,13 @@
 
 # 📦 نصب و راه‌اندازی
 
-برای نصب آخرین نسخه پایدار کتابخانه:
+برای نصب کتابخانه:
 
 ```bash
 go get github.com/AbolfazlZarei-dev/codemeet-go
-````
-
-برای نصب نسخه مشخص `v1.0.1`:
-
-```bash
-go get github.com/AbolfazlZarei-dev/codemeet-go@v1.0.1
 ```
 
-سپس می‌توانید پکیج موردنیاز خود را در پروژه‌ی Go import کنید.
-
-### 🛠️ سازگاری نسخه
-
-نسخه `v1.0.1` برای استفاده با:
-
-```text
-Go 1.20+
-```
-
-در نظر گرفته شده است.
+سپس می‌توانید آن را در پروژه‌ی Go خود import کنید.
 
 ---
 
@@ -236,7 +212,7 @@ func main() {
 
 CodeMeet Go روی Bot API پلتفرم CodeMeet ساخته شده است.
 
-### Endpoint اصلی API
+Endpoint اصلی API:
 
 ```text
 https://botapi.codemeet.chat/bot{TOKEN}/{METHOD}
@@ -570,7 +546,7 @@ http://localhost:9090
 
 بخش‌های مختلف کتابخانه برای کار با محیط‌های Concurrent طراحی شده‌اند.
 
-### موارد مهم
+### موارد مهم:
 
 * Worker-based Dispatcher
 * Bounded Dispatch Queue
@@ -764,7 +740,7 @@ if err := bot.StartWebhook(
 }
 ```
 
-همچنین API مربوط به Set / Get / Delete Webhook در package `methods` وجود دارد.
+همچنین API مربوط به Set/Get/Delete Webhook در package `methods` وجود دارد.
 
 ---
 
@@ -938,7 +914,7 @@ AsValidationError
 
 # ⚠️ وضعیت API و سازگاری نسخه‌ها
 
-این مستندات بر اساس API و ساختار نسخه‌ی `1.0.1` کتابخانه تهیه شده‌اند.
+این مستندات بر اساس API و ساختار نسخه‌ی `1.0.0` کتابخانه تهیه شده‌اند.
 
 برخی قابلیت‌ها و Methodهایی که در لایه‌ی مستندات Bot API تعریف یا برای توسعه‌های آینده در نظر گرفته شده‌اند، ممکن است در نسخه‌ی فعلی کتابخانه هنوز به صورت کامل در Bot API یا Implementation نهایی CodeMeet در دسترس نباشند.
 
@@ -956,8 +932,7 @@ AsValidationError
 
 ```text
 CodeMeet Go SDK
-Version: 1.0.1
-Go Compatibility: 1.20+
+Version: 1.0.0
 ```
 
 Repository:
