@@ -1,11 +1,6 @@
 
 <div align="center">
 
-<img src="http://abolfazlzarei.sbs/static/CodeMeet-Go-prof.png" alt="CodeMeet Go SDK Banner" width="70%"/>
-
-<br>
-<br>
-
 # 🚀 CodeMeet Go SDK
 
 ### یک SDK قدرتمند، مدرن و Production-Ready برای توسعه ربات‌های CodeMeet با زبان Go
@@ -115,7 +110,7 @@
 
 ```bash
 go get github.com/AbolfazlZarei-dev/codemeet-go
-```
+````
 
 سپس می‌توانید آن را در پروژه‌ی Go خود import کنید.
 
@@ -914,7 +909,7 @@ AsValidationError
 
 # ⚠️ وضعیت API و سازگاری نسخه‌ها
 
-این مستندات بر اساس API و ساختار نسخه‌ی `1.0.0` کتابخانه تهیه شده‌اند.
+این مستندات بر اساس API و ساختار نسخه‌ی `1.0.1` کتابخانه تهیه شده‌اند.
 
 برخی قابلیت‌ها و Methodهایی که در لایه‌ی مستندات Bot API تعریف یا برای توسعه‌های آینده در نظر گرفته شده‌اند، ممکن است در نسخه‌ی فعلی کتابخانه هنوز به صورت کامل در Bot API یا Implementation نهایی CodeMeet در دسترس نباشند.
 
@@ -932,7 +927,7 @@ AsValidationError
 
 ```text
 CodeMeet Go SDK
-Version: 1.0.0
+Version: 1.0.1
 ```
 
 Repository:
