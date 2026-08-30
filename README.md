@@ -1,11 +1,6 @@
 
 <div align="center">
 
-<img src="http://abolfazlzarei.sbs/static/CodeMeet-Go-prof.png" alt="CodeMeet Go SDK Banner" width="70%"/>
-
-<br>
-<br>
-
 # 🚀 CodeMeet Go SDK
 
 ### یک SDK قدرتمند، مدرن و Production-Ready برای توسعه ربات‌های CodeMeet با زبان Go
@@ -115,7 +110,7 @@
 
 ```bash
 go get github.com/AbolfazlZarei-dev/codemeet-go
-```
+````
 
 سپس می‌توانید آن را در پروژه‌ی Go خود import کنید.
 
