@@ -1,7 +1,7 @@
 
 <div align="center">
 
-<img src="http://abolfazlzarei.sbs/static/CodeMeet-Go-prof.png" alt="CodeMeet Go SDK Banner" width="30%"/>
+<img src="http://abolfazlzarei.sbs/static/CodeMeet-Go-prof.png" alt="CodeMeet Go SDK Banner" width="50%"/>
 
 <br>
 <br>
@@ -59,7 +59,7 @@
 # 📌 معرفی کتابخانه
 
 <div align="center">
-  <img src="http://abolfazlzarei.sbs/static/CodeMeet-Go-prof.png" alt="CodeMeet Go SDK" width="30%"/>
+  <img src="http://abolfazlzarei.sbs/static/CodeMeet-Go-prof.png" alt="CodeMeet Go SDK" width="50%"/>
 </div>
 
 <br>
