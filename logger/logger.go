@@ -8,9 +8,7 @@ import (
 	"runtime"
 	"sync"
 	"sync/atomic"
-	"syscall"
 	"time"
-	"unsafe"
 )
 
 type Level int
@@ -97,24 +95,8 @@ type logEntry struct {
 	line   int
 }
 
-func enableWindowsANSI() {
-	var mode uint32
-	stdoutHandle := syscall.Handle(os.Stdout.Fd())
-	kernel32 := syscall.NewLazyDLL("kernel32.dll")
-	procGetConsoleMode := kernel32.NewProc("GetConsoleMode")
-	procSetConsoleMode := kernel32.NewProc("SetConsoleMode")
-
-	r, _, _ := procGetConsoleMode.Call(uintptr(stdoutHandle), uintptr(unsafe.Pointer(&mode)))
-	if r != 0 {
-		mode |= 0x0004
-		procSetConsoleMode.Call(uintptr(stdoutHandle), uintptr(mode))
-	}
-}
-
 func init() {
-	if runtime.GOOS == "windows" {
-		enableWindowsANSI()
-	}
+	enableWindowsANSI()
 }
 
 func New(level Level) *Logger {
@@ -154,17 +136,14 @@ func NewAsync(level Level, bufferSize int) *Logger {
 	return l
 }
 
-// SetIncludeCaller برای کنترل خاموش/روشن کردن گرفتن اطلاعات فایل
 func (l *Logger) SetIncludeCaller(b bool) {
 	l.includeCaller.Store(b)
 }
 
-// SetEnabled برای استپ و استارت کردن لاگ‌ها از بیرون
 func (l *Logger) SetEnabled(b bool) {
 	l.enabled.Store(b)
 }
 
-// IsEnabled بررسی وضعیت روشن یا خاموش بودن لاگ‌ها
 func (l *Logger) IsEnabled() bool {
 	return l.enabled.Load()
 }
@@ -189,18 +168,22 @@ func (l *Logger) WithFields(fields ...interface{}) *Logger {
 	if len(fields)%2 != 0 {
 		fields = append(fields, "<MISSING_VALUE>")
 	}
+
 	newLogger := &Logger{
 		format: l.format,
 		out:    l.out,
 		fields: append(append([]interface{}{}, l.fields...), fields...),
 	}
+
 	newLogger.level.Store(l.level.Load())
 	newLogger.includeCaller.Store(l.includeCaller.Load())
 	newLogger.enabled.Store(l.enabled.Load())
+
 	if l.async {
 		newLogger.async = true
 		newLogger.logCh = l.logCh
 	}
+
 	return newLogger
 }
 
@@ -223,6 +206,7 @@ func (l *Logger) log(level Level, msg string, fields ...interface{}) {
 	if l.async {
 		f := make([]interface{}, len(fields))
 		copy(f, fields)
+
 		select {
 		case l.logCh <- logEntry{
 			level:  level,
@@ -233,16 +217,32 @@ func (l *Logger) log(level Level, msg string, fields ...interface{}) {
 			line:   line,
 		}:
 		default:
-			l.write(logEntry{level: level, msg: msg, fields: fields, ts: time.Now(), file: file, line: line})
+			l.write(logEntry{
+				level:  level,
+				msg:    msg,
+				fields: fields,
+				ts:     time.Now(),
+				file:   file,
+				line:   line,
+			})
 		}
+
 		return
 	}
 
-	l.write(logEntry{level: level, msg: msg, fields: fields, ts: time.Now(), file: file, line: line})
+	l.write(logEntry{
+		level:  level,
+		msg:    msg,
+		fields: fields,
+		ts:     time.Now(),
+		file:   file,
+		line:   line,
+	})
 }
 
 func (l *Logger) asyncWriter() {
 	defer l.wg.Done()
+
 	for entry := range l.logCh {
 		l.write(entry)
 	}
@@ -263,6 +263,7 @@ func (l *Logger) write(e logEntry) {
 
 func (l *Logger) writeText(e logEntry, fields []interface{}) {
 	msgColor := ColorReset
+
 	switch e.level {
 	case LevelInfo:
 		msgColor = ColorGreen
@@ -276,18 +277,49 @@ func (l *Logger) writeText(e logEntry, fields []interface{}) {
 		msgColor = ColorGray
 	}
 
-	timeStr := fmt.Sprintf("%s[%s]%s", ColorGray, e.ts.Format("2006-01-02 15:04:05"), ColorReset)
-	fmt.Fprintf(l.out, "%s %s %s%s%s", timeStr, e.level.ColorString(), msgColor, e.msg, ColorReset)
+	timeStr := fmt.Sprintf(
+		"%s[%s]%s",
+		ColorGray,
+		e.ts.Format("2006-01-02 15:04:05"),
+		ColorReset,
+	)
+
+	fmt.Fprintf(
+		l.out,
+		"%s %s %s%s%s",
+		timeStr,
+		e.level.ColorString(),
+		msgColor,
+		e.msg,
+		ColorReset,
+	)
 
 	if len(fields) > 0 {
 		fmt.Fprint(l.out, " ")
+
 		for i := 0; i+1 < len(fields); i += 2 {
-			fmt.Fprintf(l.out, "%s%v%s=%s%v%s ", ColorBlue, fields[i], ColorReset, ColorPurple, fields[i+1], ColorReset)
+			fmt.Fprintf(
+				l.out,
+				"%s%v%s=%s%v%s ",
+				ColorBlue,
+				fields[i],
+				ColorReset,
+				ColorPurple,
+				fields[i+1],
+				ColorReset,
+			)
 		}
 	}
 
 	if e.file != "" {
-		fmt.Fprintf(l.out, "%s(%s:%d)%s", ColorGray, shortFile(e.file), e.line, ColorReset)
+		fmt.Fprintf(
+			l.out,
+			"%s(%s:%d)%s",
+			ColorGray,
+			shortFile(e.file),
+			e.line,
+			ColorReset,
+		)
 	}
 
 	fmt.Fprintln(l.out)
@@ -301,13 +333,16 @@ func (l *Logger) writeJSON(e logEntry, fields []interface{}) {
 		"file":  shortFile(e.file),
 		"line":  e.line,
 	}
+
 	for i := 0; i+1 < len(fields); i += 2 {
 		key, ok := fields[i].(string)
 		if !ok {
 			continue
 		}
+
 		m[key] = fields[i+1]
 	}
+
 	b, _ := json.Marshal(m)
 	b = append(b, '\n')
 	l.out.Write(b)
@@ -319,13 +354,26 @@ func shortFile(s string) string {
 			return s[i+1:]
 		}
 	}
+
 	return s
 }
 
-func (l *Logger) Debug(msg string, fields ...interface{}) { l.log(LevelDebug, msg, fields...) }
-func (l *Logger) Info(msg string, fields ...interface{})  { l.log(LevelInfo, msg, fields...) }
-func (l *Logger) Warn(msg string, fields ...interface{})  { l.log(LevelWarn, msg, fields...) }
-func (l *Logger) Error(msg string, fields ...interface{}) { l.log(LevelError, msg, fields...) }
+func (l *Logger) Debug(msg string, fields ...interface{}) {
+	l.log(LevelDebug, msg, fields...)
+}
+
+func (l *Logger) Info(msg string, fields ...interface{}) {
+	l.log(LevelInfo, msg, fields...)
+}
+
+func (l *Logger) Warn(msg string, fields ...interface{}) {
+	l.log(LevelWarn, msg, fields...)
+}
+
+func (l *Logger) Error(msg string, fields ...interface{}) {
+	l.log(LevelError, msg, fields...)
+}
+
 func (l *Logger) Fatal(msg string, fields ...interface{}) {
 	l.log(LevelFatal, msg, fields...)
 	l.Close()
@@ -335,10 +383,12 @@ func (l *Logger) Fatal(msg string, fields ...interface{}) {
 func (l *Logger) Close() {
 	if l.async {
 		l.mu.Lock()
+
 		if l.logCh != nil {
 			close(l.logCh)
 			l.logCh = nil
 		}
+
 		l.mu.Unlock()
 		l.wg.Wait()
 	}
@@ -350,6 +400,7 @@ func (l *Logger) Sync() {
 			time.Sleep(time.Millisecond)
 		}
 	}
+
 	if s, ok := l.out.(interface{ Sync() error }); ok {
 		s.Sync()
 	}
