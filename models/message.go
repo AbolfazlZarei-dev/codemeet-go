@@ -5,6 +5,16 @@ import (
 	"strings"
 )
 
+// MessageOrigin برای شناسایی فوروارد در فرمت‌های جدید
+type MessageOrigin struct {
+	Type           string `json:"type"`
+	Date           int64  `json:"date"`
+	SenderUser     *User  `json:"sender_user,omitempty"`
+	SenderUserName string `json:"sender_user_name,omitempty"`
+	Chat           *Chat  `json:"chat,omitempty"`
+	MessageID      int    `json:"message_id,omitempty"`
+}
+
 type Message struct {
 	MessageID           int                   `json:"message_id"`
 	Date                int64                 `json:"date"`
@@ -22,17 +32,27 @@ type Message struct {
 	EditDate            int64                 `json:"edit_date,omitempty"`
 	HasProtectedContent bool                  `json:"has_protected_content,omitempty"`
 
+	// تمام فیلدهای احتمالی فوروارد
+	ForwardDate          int64          `json:"forward_date,omitempty"`
+	ForwardFrom          *User          `json:"forward_from,omitempty"`
+	ForwardFromChat      *Chat          `json:"forward_from_chat,omitempty"`
+	ForwardFromMessageID string         `json:"forward_from_message_id,omitempty"`
+	ForwardSignature     string         `json:"forward_signature,omitempty"`
+	ForwardSenderName    string         `json:"forward_sender_name,omitempty"`
+	ForwardOrigin        *MessageOrigin `json:"forward_origin,omitempty"`
+
 	NewChatMembers []User `json:"new_chat_members,omitempty"`
 	LeftChatMember *User  `json:"left_chat_member,omitempty"`
 
+	// فیلدهای مدیا به صورت آرایه
 	Photo     []PhotoSize `json:"photo,omitempty"`
-	Video     *Video      `json:"video,omitempty"`
-	Audio     *Audio      `json:"audio,omitempty"`
-	Document  *Document   `json:"document,omitempty"`
-	Animation *Animation  `json:"animation,omitempty"`
-	Voice     *Voice      `json:"voice,omitempty"`
-	VideoNote *VideoNote  `json:"video_note,omitempty"`
-	Sticker   *Sticker    `json:"sticker,omitempty"`
+	Video     []Video     `json:"video,omitempty"`
+	Audio     []Audio     `json:"audio,omitempty"`
+	Document  []Document  `json:"document,omitempty"`
+	Animation []Animation `json:"animation,omitempty"`
+	Voice     []Voice     `json:"voice,omitempty"`
+	VideoNote []VideoNote `json:"video_note,omitempty"`
+	Sticker   []Sticker   `json:"sticker,omitempty"`
 	Contact   *Contact    `json:"contact,omitempty"`
 	Location  *Location   `json:"location,omitempty"`
 	Venue     *Venue      `json:"venue,omitempty"`
@@ -42,9 +62,9 @@ type Message struct {
 
 // HasMedia آیا پیام مدیا دارد
 func (m *Message) HasMedia() bool {
-	return m.Photo != nil || m.Video != nil || m.Audio != nil ||
-		m.Document != nil || m.Animation != nil || m.Voice != nil ||
-		m.VideoNote != nil || m.Sticker != nil || m.Contact != nil ||
+	return len(m.Photo) > 0 || len(m.Video) > 0 || len(m.Audio) > 0 ||
+		len(m.Document) > 0 || len(m.Animation) > 0 || len(m.Voice) > 0 ||
+		len(m.VideoNote) > 0 || len(m.Sticker) > 0 || m.Contact != nil ||
 		m.Location != nil || m.Venue != nil || m.Poll != nil || m.Dice != nil
 }
 
@@ -67,7 +87,6 @@ func (m *Message) CommandName() string {
 				if len(cmd) > 0 && cmd[0] == '/' {
 					cmd = cmd[1:]
 				}
-				// حذف @botname اگر وجود داشت
 				if idx := strings.Index(cmd, "@"); idx != -1 {
 					cmd = cmd[:idx]
 				}
@@ -85,9 +104,7 @@ func (m *Message) CommandArgs() string {
 	}
 
 	cmdName := "/" + m.CommandName()
-	// اگر در متن @botname وجود داشت، آن را نادیده می‌گیریم
 	if idx := strings.Index(m.Text, "@"); idx != -1 {
-		// پیدا کردن فاصله بعد از @botname
 		spaceIdx := strings.Index(m.Text[idx:], " ")
 		if spaceIdx != -1 {
 			return strings.TrimSpace(m.Text[idx+spaceIdx:])
