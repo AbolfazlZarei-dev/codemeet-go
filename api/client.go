@@ -222,7 +222,7 @@ func (c *Client) StatsSnapshot() StatsSnapshot { return c.stats.Snapshot() }
 func (c *Client) Breaker() *CircuitBreaker     { return c.breaker }
 
 func (c *Client) UserAgent() string {
-	return fmt.Sprintf("codemeet-go/1.0.0 (%s/%s) go/%s",
+	return fmt.Sprintf("codemeet-go/1.1.0 (%s/%s) go/%s",
 		runtime.GOOS, runtime.GOARCH, runtime.Version())
 }
 
