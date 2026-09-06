@@ -26,7 +26,7 @@
 
 <br>
 
-[![Documentation](https://img.shields.io/badge/📚%20Documentation-Read%20the%20Docs-6366F1?style=for-the-badge)](README/)
+[![Documentation](https://img.shields.io/badge/📚%20Documentation-Read%20the%20Docs-6366F1?style=for-the-badge)](README/00-index.md)
 [![Release](https://img.shields.io/github/v/release/AbolfazlZarei-dev/codemeet-go?style=for-the-badge&logo=github&color=3b82f6)](https://github.com/AbolfazlZarei-dev/codemeet-go/releases)
 [![Go Version](https://img.shields.io/github/go-mod/go-version/AbolfazlZarei-dev/codemeet-go?style=for-the-badge&logo=go&color=00ADD8)](https://github.com/AbolfazlZarei-dev/codemeet-go)
 
@@ -847,69 +847,95 @@ AsValidationError
 
 مستندات پروژه به صورت بخش‌بندی‌شده داخل پوشه‌ی `README/` قرار گرفته‌اند.
 
-برای مشاهده مستندات کامل:
+برای مشاهده فهرست مستندات:
 
 ### 📖 Documentation
 
-[![Documentation](https://img.shields.io/badge/📚%20Open-Complete%20Documentation-6366F1?style=for-the-badge)](README/README.md)
+[![Documentation](https://img.shields.io/badge/📚%20Open-Complete%20Documentation-6366F1?style=for-the-badge)](README/00-index.md)
 
-### بخش‌های اصلی
+### شروع کار و معماری
 
-* [01 — Getting Started](README/01_Getting_Started.md)
-* [02 — Bot API and Architecture](README/02_Bot_API_and_Architecture.md)
-* [03 — Messages and Media](README/03_Messages_and_Media.md)
-* [04 — Updates, Polling and Webhook](README/04_Updates_Polling_Webhook.md)
-* [05 — Chat Management](README/05_Chat_Management.md)
-* [06 — Bot Profile and Commands](README/06_Bot_Profile_and_Commands.md)
-* [07 — Keyboards and Buttons](README/07_Keyboards_and_Buttons.md)
-* [08 — Models](README/08_Models.md)
+* [00 — Index](README/00-index.md)
+* [01 — Introduction](README/01-introduction.md)
+* [02 — Installation](README/02-installation.md)
+* [03 — Quick Start](README/03-quick-start.md)
+* [04 — BotFather](README/04-botfather.md)
+* [05 — Updates](README/05-updates.md)
+* [06 — Polling](README/06-polling.md)
+* [07 — Webhook](README/07-webhook.md)
+* [08 — Architecture](README/08-architecture.md)
 
-### Package Reference
+### پکیج‌های پایه
 
-* [09 — Package: codemeet](README/09_Package_Codemeet.md)
-* [10 — Package: api](README/10_Package_API.md)
-* [11 — Package: methods](README/11_Package_Methods.md)
-* [12 — Package: dispatcher](README/12_Package_Dispatcher.md)
-* [13 — Package: middleware](README/13_Package_Middleware.md)
-* [14 — Package: cache](README/14_Package_Cache.md)
-* [15 — Package: ratelimit](README/15_Package_RateLimit.md)
-* [16 — Package: retry](README/16_Package_Retry.md)
-* [17 — Package: logger](README/17_Package_Logger.md)
-* [18 — Package: errors](README/18_Package_Errors.md)
-* [19 — Package: polling](README/19_Package_Polling.md)
-* [20 — Package: webhook](README/20_Package_Webhook.md)
+* [09 — API Client](README/09-api-client.md)
+* [10 — Dispatcher](README/10-dispatcher.md)
+* [11 — Middleware](README/11-middleware.md)
+* [12 — Cache](README/12-cache.md)
+* [13 — Retry](README/13-retry.md)
+* [14 — Rate Limit](README/14-ratelimit.md)
+* [15 — Errors](README/15-errors.md)
+* [16 — Logger](README/16-logger.md)
+* [17 — Database](README/17-database.md)
 
-### Methods
+### توسعه و رفرنس
 
-* [21 — Bot Methods](README/21_Methods_Bot.md)
-* [22 — Chat Methods](README/22_Methods_Chat.md)
-* [23 — Message Methods](README/23_Methods_Messages.md)
-* [24 — Media Methods](README/24_Methods_Media.md)
-* [25 — Updates and Webhook Methods](README/25_Methods_Updates_Webhook.md)
+* [18 — Examples](README/18-examples.md)
+* [19 — Production](README/19-production.md)
+* [20 — Troubleshooting](README/20-troubleshooting.md)
+* [21 — Reference](README/21-reference.md)
+* [22 — Changelog 1.1.0](README/22-changelog-1.1.0.md)
+* [23 — Keyboards and Callbacks](README/23-keyboards-and-callbacks.md)
+* [24 — Sending and Media](README/24-sending-and-media.md)
+* [25 — Dashboard](README/25-dashboard.md)
+* [26 — Advanced API](README/26-advanced-api.md)
+* [27 — Exported API Index](README/27-exported-api-index.md)
+* [28 — Endpoint Map](README/28-endpoint-map.md)
+* [29 — Method Signatures](README/29-method-signatures.md)
 
-### قابلیت‌های پیشرفته
+### متدها (Methods)
 
-* [26 — Reliability, Performance and Observability](README/26_Reliability_Performance.md)
-* [27 — AntiLink](README/27_Contrib_AntiLink.md)
-* [28 — AntiSpam](README/28_Contrib_AntiSpam.md)
-* [29 — ForceJoin](README/29_Contrib_ForceJoin.md)
-* [30 — Gatekeeper](README/30_Contrib_Gatekeeper.md)
-* [31 — Maintenance Mode](README/31_Contrib_MaintenanceMode.md)
-* [32 — Profanity Filter](README/32_Contrib_ProfanityFilter.md)
-* [33 — VPN Detector](README/33_Contrib_VPNDetector.md)
-* [34 — Warn System](README/34_Contrib_WarnSystem.md)
+* [Methods — Bot](README/methods-bot.md)
+* [Methods — Chat](README/methods-chat.md)
+* [Methods — Media](README/methods-media.md)
+* [Methods — Messages](README/methods-messages.md)
+* [Methods — Updates](README/methods-updates.md)
+* [Methods — Webhook](README/methods-webhook.md)
 
-### توسعه و استفاده واقعی
+### مدل‌ها (Models)
 
-* [35 — Examples and Production Patterns](README/35_Examples.md)
-* [36 — Errors and Troubleshooting](README/36_Errors_and_Troubleshooting.md)
-* [37 — Package Map and API Index](README/37_API_Index.md)
+* [Models — Bot](README/models-bot.md)
+* [Models — Chat](README/models-chat.md)
+* [Models — Keyboard](README/models-keyboard.md)
+* [Models — Message](README/models-message.md)
+* [Models — Update](README/models-update.md)
+* [Models — User](README/models-user.md)
+* [Models — Webhook](README/models-webhook.md)
+
+### قابلیت‌های پیشرفته (Contrib)
+
+* [Feature — AI](README/feature-ai.md)
+* [Feature — AntiLink](README/feature-antilink.md)
+* [Feature — AntiSpam](README/feature-antispam.md)
+* [Feature — Console & Broadcast](README/feature-console-broadcast.md)
+* [Feature — ForceJoin](README/feature-forcejoin.md)
+* [Feature — Gatekeeper](README/feature-gatekeeper.md)
+* [Feature — Group Manager](README/feature-groupmanager.md)
+* [Feature — Maintenance](README/feature-maintenance.md)
+* [Feature — Profanity Filter](README/feature-profanity.md)
+* [Feature — Reminder](README/feature-reminder.md)
+* [Feature — Shop Engine](README/feature-shopengine.md)
+* [Feature — VPN Detector](README/feature-vpndetector.md)
+* [Feature — Warn System](README/feature-warnsystem.md)
+
+### سایر
+
+* [README — Contributing](README/README-CONTRIBUTING.md)
 
 ---
 
 # ⚠️ وضعیت API و سازگاری نسخه‌ها
 
-این مستندات بر اساس API و ساختار نسخه‌ی `1.0.2` کتابخانه تهیه شده‌اند.
+این مستندات بر اساس API و ساختار نسخه‌ی `1.1.0` کتابخانه تهیه شده‌اند.
 
 برخی قابلیت‌ها و Methodهایی که در لایه‌ی مستندات Bot API تعریف یا برای توسعه‌های آینده در نظر گرفته شده‌اند، ممکن است در نسخه‌ی فعلی کتابخانه هنوز به صورت کامل در Bot API یا Implementation نهایی CodeMeet در دسترس نباشند.
 
@@ -927,7 +953,7 @@ AsValidationError
 
 ```text
 CodeMeet Go SDK
-Version: 1.0.2
+Version: 1.1.0
 ```
 
 Repository:
@@ -965,7 +991,7 @@ Developer & Creator of CodeMeet Go SDK
 
 <br>
 
-[![GitHub](https://img.shields.io/badge/GitHub-AbolfazlZarei--dev-181717?style=for-the-badge\&logo=github\&logoColor=white)](https://github.com/AbolfazlZarei-dev)
+[![GitHub](https://img.shields.io/badge/GitHub-AbolfazlZarei--dev-181717?style=for-the-badge&logo=github&logoColor=white)](https://github.com/AbolfazlZarei-dev)
 
 <br><br>
 
@@ -987,8 +1013,8 @@ Built with ❤️ and Go
 
 <br>
 
-[![Get Started](https://img.shields.io/badge/🚀%20Get%20Started-Documentation-6366F1?style=for-the-badge)](README/README.md)
-[![Go Reference](https://img.shields.io/badge/📦%20Go-Reference-00ADD8?style=for-the-badge\&logo=go\&logoColor=white)](https://pkg.go.dev/github.com/AbolfazlZarei-dev/codemeet-go)
-[![GitHub](https://img.shields.io/badge/⭐%20Star-on%20GitHub-181717?style=for-the-badge\&logo=github\&logoColor=white)](https://github.com/AbolfazlZarei-dev/codemeet-go)
+[![Get Started](https://img.shields.io/badge/🚀%20Get%20Started-Documentation-6366F1?style=for-the-badge)](README/00-index.md)
+[![Go Reference](https://img.shields.io/badge/📦%20Go-Reference-00ADD8?style=for-the-badge&logo=go&logoColor=white)](https://pkg.go.dev/github.com/AbolfazlZarei-dev/codemeet-go)
+[![GitHub](https://img.shields.io/badge/⭐%20Star-on%20GitHub-181717?style=for-the-badge&logo=github&logoColor=white)](https://github.com/AbolfazlZarei-dev/codemeet-go)
 
 </div>
