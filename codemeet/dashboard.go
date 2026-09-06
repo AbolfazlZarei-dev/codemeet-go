@@ -11,82 +11,33 @@ const loginHTML = `<!DOCTYPE html>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
     <style>
         body {
-            margin: 0;
-            padding: 0;
-            background-color: #0b1120;
+            margin: 0; padding: 0; background-color: #0b1120;
             background-image: radial-gradient(circle at top right, rgba(59, 130, 246, 0.1), transparent 40%), radial-gradient(circle at bottom left, rgba(139, 92, 246, 0.1), transparent 40%);
-            color: #f1f5f9;
-            font-family: 'Inter', 'Segoe UI', sans-serif;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            height: 100vh;
+            color: #f1f5f9; font-family: 'Inter', 'Segoe UI', sans-serif;
+            display: flex; justify-content: center; align-items: center; height: 100vh;
         }
         .login-card {
-            background: rgba(30, 41, 59, 0.6);
-            padding: 40px;
-            border-radius: 20px;
-            width: 100%;
-            max-width: 400px;
-            text-align: center;
-            box-shadow: 0 10px 40px rgba(0,0,0,0.4);
-            backdrop-filter: blur(12px);
+            background: rgba(30, 41, 59, 0.6); padding: 40px; border-radius: 20px;
+            width: 100%; max-width: 400px; text-align: center;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.4); backdrop-filter: blur(12px);
             border: 1px solid rgba(51, 65, 85, 0.5);
         }
-        .login-card h1 { 
-            margin: 0 0 10px 0; 
-            font-size: 28px; 
-            color: #3b82f6; 
-        }
-        .login-card p { 
-            margin: 0 0 30px 0; 
-            color: #94a3b8; 
-            font-size: 14px;
-        }
-        .input-group {
-            position: relative;
-            margin-bottom: 20px;
-        }
-        .input-group i {
-            position: absolute;
-            left: 15px;
-            top: 50%;
-            transform: translateY(-50%);
-            color: #94a3b8;
-        }
+        .login-card h1 { margin: 0 0 10px 0; font-size: 28px; color: #3b82f6; }
+        .login-card p { margin: 0 0 30px 0; color: #94a3b8; font-size: 14px; }
+        .input-group { position: relative; margin-bottom: 20px; }
+        .input-group i { position: absolute; left: 15px; top: 50%; transform: translateY(-50%); color: #94a3b8; }
         .input-group input {
-            width: 100%;
-            padding: 15px 20px 15px 45px;
-            border-radius: 10px;
-            border: 1px solid #334155;
-            background: #0f172a;
-            color: #f1f5f9;
-            box-sizing: border-box;
-            outline: none;
-            transition: all 0.2s;
-            font-size: 14px;
+            width: 100%; padding: 15px 20px 15px 45px; border-radius: 10px;
+            border: 1px solid #334155; background: #0f172a; color: #f1f5f9;
+            box-sizing: border-box; outline: none; transition: all 0.2s; font-size: 14px;
         }
-        .input-group input:focus {
-            border-color: #3b82f6;
-            box-shadow: 0 0 10px rgba(59, 130, 246, 0.4);
-        }
+        .input-group input:focus { border-color: #3b82f6; box-shadow: 0 0 10px rgba(59, 130, 246, 0.4); }
         .btn-login {
-            width: 100%;
-            padding: 15px;
-            background: linear-gradient(135deg, #3b82f6, #8b5cf6);
-            border: none;
-            color: white;
-            border-radius: 10px;
-            font-weight: 700;
-            font-size: 16px;
-            cursor: pointer;
-            transition: all 0.2s;
-            margin-top: 10px;
+            width: 100%; padding: 15px; background: linear-gradient(135deg, #3b82f6, #8b5cf6);
+            border: none; color: white; border-radius: 10px; font-weight: 700; font-size: 16px;
+            cursor: pointer; transition: all 0.2s; margin-top: 10px;
         }
-        .btn-login:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 4px 15px rgba(59, 130, 246, 0.4);
-        }
+        .btn-login:hover { transform: translateY(-2px); box-shadow: 0 4px 15px rgba(59, 130, 246, 0.4); }
     </style>
 </head>
 <body>
@@ -121,62 +72,40 @@ const dashboardHTML = `<!DOCTYPE html>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
     <style>
         :root {
-            --bg-color: #0b1120;
-            --card-bg: rgba(30, 41, 59, 0.6);
-            --card-bg-solid: #1e293b;
-            --text-color: #f1f5f9;
-            --text-muted: #94a3b8;
-            --accent-color: #3b82f6;
-            --accent-glow: rgba(59, 130, 246, 0.4);
-            --success-color: #10b981;
-            --warn-color: #facc15;
-            --error-color: #ef4444;
-            --border-color: rgba(51, 65, 85, 0.5);
-            --log-bg: rgba(2, 6, 23, 0.9);
+            --bg-color: #0b1120; --card-bg: rgba(30, 41, 59, 0.6); --card-bg-solid: #1e293b;
+            --text-color: #f1f5f9; --text-muted: #94a3b8; --accent-color: #3b82f6;
+            --accent-glow: rgba(59, 130, 246, 0.4); --success-color: #10b981; --warn-color: #facc15;
+            --error-color: #ef4444; --border-color: rgba(51, 65, 85, 0.5); --log-bg: rgba(2, 6, 23, 0.9);
             --shadow: 0 10px 40px rgba(0,0,0,0.4);
         }
-
         body.light-mode {
-            --bg-color: #f1f5f9;
-            --card-bg: rgba(255, 255, 255, 0.9);
-            --card-bg-solid: #ffffff;
-            --text-color: #0f172a;
-            --text-muted: #475569;
-            --border-color: rgba(203, 213, 225, 0.8);
-            --log-bg: rgba(248, 250, 252, 0.9);
-            --shadow: 0 10px 30px rgba(0,0,0,0.05);
+            --bg-color: #f1f5f9; --card-bg: rgba(255, 255, 255, 0.9); --card-bg-solid: #ffffff;
+            --text-color: #0f172a; --text-muted: #475569; --border-color: rgba(203, 213, 225, 0.8);
+            --log-bg: rgba(248, 250, 252, 0.9); --shadow: 0 10px 30px rgba(0,0,0,0.05);
         }
-
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body { 
             background-color: var(--bg-color); 
             background-image: radial-gradient(circle at top right, rgba(59, 130, 246, 0.1), transparent 40%), radial-gradient(circle at bottom left, rgba(139, 92, 246, 0.1), transparent 40%);
-            color: var(--text-color); 
-            padding: 20px; 
-            font-family: 'Inter', 'Vazirmatn', 'Segoe UI', sans-serif; 
-            transition: background-color 0.3s ease, color 0.3s ease;
-            min-height: 100vh;
+            color: var(--text-color); padding: 20px; font-family: 'Inter', 'Vazirmatn', 'Segoe UI', sans-serif; 
+            transition: background-color 0.3s ease, color 0.3s ease; min-height: 100vh;
         }
         body[dir="rtl"] { font-family: 'Vazirmatn', 'Inter', sans-serif; }
-
         .container { max-width: 1200px; margin: 0 auto; }
         
         .header { 
             display: flex; justify-content: space-between; align-items: center; margin-bottom: 30px; 
-            background: var(--card-bg); padding: 20px 30px; border-radius: 20px; 
-            border: 1px solid var(--border-color); 
-            backdrop-filter: blur(12px);
-            box-shadow: var(--shadow);
+            background: var(--card-bg); padding: 20px 30px; border-radius: 20px; border: 1px solid var(--border-color); 
+            backdrop-filter: blur(12px); box-shadow: var(--shadow);
         }
         .header h1 { font-size: 24px; font-weight: 800; display: flex; align-items: center; gap: 15px; }
         .header h1 i { color: var(--accent-color); font-size: 28px; }
         .logo { 
             width: 45px; height: 45px; background: linear-gradient(135deg, var(--accent-color), #8b5cf6); 
             border-radius: 12px; display: flex; align-items: center; justify-content: center; 
-            font-weight: bold; color: white; font-size: 18px;
-            box-shadow: 0 4px 15px var(--accent-glow);
+            font-weight: bold; color: white; font-size: 18px; box-shadow: 0 4px 15px var(--accent-glow);
         }
-        .header-controls { display: flex; align-items: center; gap: 15px; }
+        .header-controls { display: flex; align-items: center; gap: 15px; flex-wrap: wrap; }
         
         select, .theme-toggle, .btn-action {
             background: var(--card-bg-solid); color: var(--text-color); border: 1px solid var(--border-color);
@@ -184,12 +113,14 @@ const dashboardHTML = `<!DOCTYPE html>
             transition: all 0.2s; display: flex; align-items: center; justify-content: center; gap: 8px;
         }
         select:hover, .theme-toggle:hover, .btn-action:hover { 
-            border-color: var(--accent-color); 
-            box-shadow: 0 0 10px var(--accent-glow);
-            transform: translateY(-1px);
+            border-color: var(--accent-color); box-shadow: 0 0 10px var(--accent-glow); transform: translateY(-1px);
         }
         .theme-toggle { width: 38px; height: 38px; padding: 0; }
         .btn-action { height: 32px; padding: 0 12px; font-size: 12px; font-weight: 600; }
+        .btn-start { border-color: var(--success-color); color: var(--success-color); }
+        .btn-start:hover { background: var(--success-color); color: #fff; }
+        .btn-stop { border-color: var(--error-color); color: var(--error-color); }
+        .btn-stop:hover { background: var(--error-color); color: #fff; }
 
         .status-indicator { 
             display: flex; align-items: center; gap: 8px; font-size: 14px; color: var(--success-color); 
@@ -197,6 +128,7 @@ const dashboardHTML = `<!DOCTYPE html>
             border: 1px solid rgba(16, 185, 129, 0.3);
         }
         .dot { width: 8px; height: 8px; background-color: var(--success-color); border-radius: 50%; animation: pulse 2s infinite; }
+        .dot.off { background-color: var(--error-color); }
         @keyframes pulse { 0% { box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.7); } 70% { box-shadow: 0 0 0 10px rgba(16, 185, 129, 0); } 100% { box-shadow: 0 0 0 0 rgba(16, 185, 129, 0); } }
 
         .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 20px; margin-bottom: 30px; }
@@ -252,24 +184,32 @@ const dashboardHTML = `<!DOCTYPE html>
         a:hover { text-decoration: underline; }
         .tag { display: inline-block; background: rgba(59, 130, 246, 0.1); color: var(--accent-color); padding: 6px 14px; border-radius: 20px; font-size: 12px; margin: 3px; border: 1px solid rgba(59, 130, 246, 0.2); font-weight: 600; }
 
-        .terminal { background: var(--log-bg); border-radius: 12px; border: 1px solid var(--border-color); overflow: hidden; direction: ltr; text-align: left; box-shadow: var(--shadow); }
-        .terminal-header { background: var(--card-bg-solid); padding: 12px 15px; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border-color); }
+        /* BROADCAST PANEL */
+        .bc-panel { display: flex; gap: 10px; margin-top: 15px; align-items: center; }
+        .bc-panel select, .bc-panel input { background: var(--card-bg-solid); border: 1px solid var(--border-color); color: var(--text-color); padding: 10px; border-radius: 8px; font-family: inherit; }
+        .bc-panel input { flex-grow: 1; }
+        .bc-btn { padding: 10px 20px; background: var(--accent-color); color: #fff; border: none; border-radius: 8px; font-weight: bold; cursor: pointer; }
+        .bc-btn:hover { box-shadow: 0 0 15px var(--accent-glow); }
+
+        /* TERMINAL */
+        .terminal { background: var(--log-bg); border-radius: 12px; border: 1px solid var(--border-color); overflow: hidden; direction: ltr; text-align: left; box-shadow: var(--shadow); display:flex; flex-direction:column; height: 600px; }
+        .terminal-header { background: var(--card-bg-solid); padding: 12px 15px; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border-color); flex-wrap: wrap; gap: 10px; }
         .terminal-header-left { display: flex; gap: 8px; align-items: center; }
         .dot-red { width: 12px; height: 12px; border-radius: 50%; background: #ef4444; }
         .dot-yellow { width: 12px; height: 12px; border-radius: 50%; background: #facc15; }
         .dot-green { width: 12px; height: 12px; border-radius: 50%; background: #4ade80; }
         .terminal-title { margin-left: 10px; font-size: 12px; color: var(--text-muted); font-family: 'JetBrains Mono', monospace; }
-        .terminal-header-right { display: flex; gap: 10px; align-items: center; }
+        .terminal-header-right { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+        .os-select { background: transparent; border: 1px solid var(--border-color); color: var(--accent-color); padding: 5px 10px; border-radius: 4px; font-size: 12px; outline: none; font-family: 'JetBrains Mono', monospace; }
         .search-wrapper { position: relative; display: flex; align-items: center; }
         .search-wrapper i { position: absolute; left: 10px; color: var(--text-muted); font-size: 12px; }
-        .log-search { background: transparent; border: 1px solid var(--border-color); color: var(--text-color); padding: 5px 10px 5px 30px; border-radius: 4px; font-size: 12px; outline: none; width: 200px; transition: all 0.2s; }
+        .log-search { background: transparent; border: 1px solid var(--border-color); color: var(--text-color); padding: 5px 10px 5px 30px; border-radius: 4px; font-size: 12px; outline: none; width: 150px; transition: all 0.2s; font-family: 'JetBrains Mono', monospace; }
         .log-search:focus { border-color: var(--accent-color); box-shadow: 0 0 10px var(--accent-glow); }
 
-        .terminal-body { padding: 15px; height: 500px; overflow-y: auto; font-family: 'JetBrains Mono', 'Courier New', monospace; font-size: 13px; }
+        .terminal-body { flex-grow: 1; padding: 15px; overflow-y: auto; font-family: 'JetBrains Mono', 'Courier New', monospace; font-size: 13px; }
         .terminal-body::-webkit-scrollbar { width: 8px; }
         .terminal-body::-webkit-scrollbar-track { background: transparent; }
         .terminal-body::-webkit-scrollbar-thumb { background: #475569; border-radius: 4px; }
-        .terminal-body::-webkit-scrollbar-thumb:hover { background: #64748b; }
         
         .log-line { margin-bottom: 8px; padding: 8px 12px; border-radius: 6px; white-space: pre-wrap; word-wrap: break-word; border-left: 4px solid transparent; background: rgba(255,255,255,0.02); transition: all 0.2s; }
         .log-line:hover { background: rgba(255,255,255,0.05); transform: translateX(2px); }
@@ -280,34 +220,23 @@ const dashboardHTML = `<!DOCTYPE html>
         .level-error, .level-fatal { color: #ef4444; border-left-color: #ef4444; background: rgba(239, 68, 68, 0.1); }
         .level-debug { color: #38bdf8; border-left-color: #38bdf8; background: rgba(56, 189, 248, 0.1); }
         .level-unknown { color: #cbd5e1; border-left-color: #334155; }
+        .log-cmd { color: #38bdf8; border-left-color: #38bdf8; background: rgba(56, 189, 248, 0.05); font-weight: bold; }
         
         .highlight { color: #facc15; font-weight: bold; }
         .file-highlight { color: #94a3b8; font-style: italic; }
 
-        /* Toast Notification */
+        .terminal-input-line { display: flex; align-items: center; padding: 10px 15px; border-top: 1px solid var(--border-color); background: var(--card-bg-solid); }
+        .prompt { margin-right: 10px; font-family: 'JetBrains Mono', monospace; font-weight: bold; color: var(--success-color); }
+        .terminal-input { flex-grow: 1; background: transparent; border: none; outline: none; color: var(--text-color); font-family: 'JetBrains Mono', monospace; font-size: 13px; caret-color: var(--accent-color); }
+
         .toast {
-            visibility: hidden;
-            min-width: 250px;
-            margin-left: -125px;
-            background-color: var(--success-color);
-            color: #fff;
-            text-align: center;
-            border-radius: 8px;
-            padding: 12px;
-            position: fixed;
-            z-index: 1;
-            left: 50%;
-            bottom: 30px;
-            font-weight: 600;
-            box-shadow: 0 4px 15px rgba(0,0,0,0.3);
-            opacity: 0;
-            transition: opacity 0.3s, bottom 0.3s;
+            visibility: hidden; min-width: 250px; margin-left: -125px;
+            background-color: var(--success-color); color: #fff; text-align: center;
+            border-radius: 8px; padding: 12px; position: fixed; z-index: 1;
+            left: 50%; bottom: 30px; font-weight: 600; box-shadow: 0 4px 15px rgba(0,0,0,0.3);
+            opacity: 0; transition: opacity 0.3s, bottom 0.3s;
         }
-        .toast.show {
-            visibility: visible;
-            opacity: 1;
-            bottom: 50px;
-        }
+        .toast.show { visibility: visible; opacity: 1; bottom: 50px; }
     </style>
 </head>
 <body>
@@ -327,11 +256,13 @@ const dashboardHTML = `<!DOCTYPE html>
                 <button class="theme-toggle" onclick="toggleTheme()" title="Toggle Theme">
                     <i class="fas fa-moon" id="theme-icon"></i>
                 </button>
+                <button class="btn-action btn-start" onclick="controlBot('start')"><i class="fas fa-play"></i> Start Bot</button>
+                <button class="btn-action btn-stop" onclick="controlBot('stop')"><i class="fas fa-stop"></i> Stop Bot</button>
                 <button class="theme-toggle" onclick="window.location.href='/logout'" title="Logout" style="color: var(--error-color);">
                     <i class="fas fa-right-from-bracket"></i>
                 </button>
                 <div class="status-indicator">
-                    <div class="dot"></div>
+                    <div class="dot" id="status-dot"></div>
                     <i class="fas fa-bolt"></i>
                     <span id="t-status">RUNNING</span>
                 </div>
@@ -433,6 +364,20 @@ const dashboardHTML = `<!DOCTYPE html>
             </div>
         </div>
 
+        <div class="panel" id="broadcast-panel" style="display:none;">
+            <h2><i class="fas fa-bullhorn"></i> <span>Broadcast System</span></h2>
+            <div class="bc-panel">
+                <select id="broadcast-target">
+                    <option value="all">All</option>
+                    <option value="users">Users</option>
+                    <option value="groups">Groups</option>
+                    <option value="channels">Channels</option>
+                </select>
+                <input type="text" id="broadcast-text" placeholder="Enter message to broadcast...">
+                <button class="bc-btn" onclick="sendBroadcast()"><i class="fas fa-paper-plane"></i> Execute</button>
+            </div>
+        </div>
+
         <div class="panel">
             <h2><i class="fas fa-circle-info"></i> <span id="t-sys-info">System Information</span></h2>
             <div class="info-row">
@@ -469,6 +414,11 @@ const dashboardHTML = `<!DOCTYPE html>
                         <div class="terminal-title" id="t-logs-title">bot@codemeet: ~ (live logs)</div>
                     </div>
                     <div class="terminal-header-right">
+                        <select id="os-select" class="os-select" onchange="changeTerminalOS(this.value)">
+                            <option value="linux">Linux (Bash)</option>
+                            <option value="windows">Windows (PS)</option>
+                            <option value="mac">macOS (Zsh)</option>
+                        </select>
                         <div class="search-wrapper">
                             <i class="fas fa-magnifying-glass"></i>
                             <input type="text" class="log-search" id="log-search" placeholder="Search logs..." oninput="fetchLogs()">
@@ -485,6 +435,10 @@ const dashboardHTML = `<!DOCTYPE html>
                     </div>
                 </div>
                 <div class="terminal-body" id="log-container"></div>
+                <div class="terminal-input-line" id="terminal-input-wrapper">
+                    <span class="prompt" id="term-prompt">root@codemeet:~#</span>
+                    <input type="text" class="terminal-input" id="console-input" placeholder="Type command and press Enter (e.g. help, neofetch, ls)" autofocus>
+                </div>
             </div>
         </div>
     </div>
@@ -500,105 +454,68 @@ const dashboardHTML = `<!DOCTYPE html>
 
         let isPaused = false;
         let logsEnabled = true;
+        let cmdHistory = [];
+        let historyIndex = -1;
 
         function applyLanguage(lang) {
             const t = translations[lang] || translations.en;
             document.documentElement.lang = lang;
             document.documentElement.dir = (lang === 'fa' || lang === 'ar') ? 'rtl' : 'ltr';
-            
             const ids = ['dashboard', 'status', 'total_req', 'success', 'errors', 'latency', 'sys_status', 'all_op', 'sys_smooth', 'comp', 'op', 'issues', 'core', 'bot_api', 'infra', 'update_rec', 'disp', 'rl', 'send_msg', 'media_up', 'chat_mgmt', 'cache', 'retry', 'dash_srv', 'sys_info', 'author', 'github', 'repo', 'version', 'runmode', 'features', 'logs_title', 'search_log', 'copy', 'toast_copied'];
-            
-            ids.forEach(id => {
-                const el = document.getElementById('t-' + id);
-                if(el) el.innerText = t[id];
-            });
-
+            ids.forEach(id => { const el = document.getElementById('t-' + id); if(el) el.innerText = t[id]; });
             document.getElementById('log-search').placeholder = t.search_log;
             document.getElementById('lang-select').value = lang;
             localStorage.setItem('cm-lang', lang);
         }
-
         function changeLanguage(lang) { applyLanguage(lang); }
-
         function toggleTheme() {
             document.body.classList.toggle('light-mode');
             const isLight = document.body.classList.contains('light-mode');
             document.getElementById('theme-icon').className = isLight ? 'fas fa-sun' : 'fas fa-moon';
             localStorage.setItem('cm-theme', isLight ? 'light' : 'dark');
         }
-
         function togglePause() {
             isPaused = !isPaused;
             const btn = document.getElementById('pause-btn');
             btn.innerHTML = isPaused ? '<i class="fas fa-play"></i>' : '<i class="fas fa-pause"></i>';
             btn.style.color = isPaused ? 'var(--warn-color)' : 'var(--text-color)';
         }
-
         async function toggleLogs() {
             try {
                 const res = await fetch('/api/logs/toggle');
                 const data = await res.json();
                 logsEnabled = data.enabled;
                 const btn = document.getElementById('toggle-log-btn');
-                if (logsEnabled) {
-                    btn.innerHTML = '<i class="fas fa-stop"></i> Stop Logs';
-                    btn.style.color = 'var(--error-color)';
-                } else {
-                    btn.innerHTML = '<i class="fas fa-play"></i> Resume Logs';
-                    btn.style.color = 'var(--success-color)';
-                }
-                fetchLogs(); // Fetch immediately to see the toggle message
-            } catch (e) {
-                console.error('Error toggling logs:', e);
-            }
+                if (logsEnabled) { btn.innerHTML = '<i class="fas fa-stop"></i> Stop Logs'; btn.style.color = 'var(--error-color)'; } 
+                else { btn.innerHTML = '<i class="fas fa-play"></i> Resume Logs'; btn.style.color = 'var(--success-color)'; }
+                fetchLogs();
+            } catch (e) { console.error('Error toggling logs:', e); }
         }
-
         function showToast(message) {
             const toast = document.getElementById("toast");
-            toast.innerText = message;
-            toast.className = "toast show";
+            toast.innerText = message; toast.className = "toast show";
             setTimeout(() => { toast.className = toast.className.replace("show", ""); }, 3000);
         }
-
         async function copyLogs() {
             try {
                 const res = await fetch('/api/logs');
                 const logs = await res.json();
                 const text = logs.join('\n');
-                
-                if (navigator.clipboard && window.isSecureContext) {
-                    await navigator.clipboard.writeText(text);
-                } else {
-                    // Fallback
+                if (navigator.clipboard && window.isSecureContext) { await navigator.clipboard.writeText(text); } 
+                else {
                     const textArea = document.createElement('textarea');
-                    textArea.value = text;
-                    textArea.style.position = 'fixed';
-                    textArea.style.opacity = '0';
-                    document.body.appendChild(textArea);
-                    textArea.focus();
-                    textArea.select();
-                    document.execCommand('copy');
-                    document.body.removeChild(textArea);
+                    textArea.value = text; textArea.style.position = 'fixed'; textArea.style.opacity = '0';
+                    document.body.appendChild(textArea); textArea.focus(); textArea.select();
+                    document.execCommand('copy'); document.body.removeChild(textArea);
                 }
-                
                 const lang = localStorage.getItem('cm-lang') || 'en';
                 showToast(translations[lang].toast_copied);
-            } catch (err) {
-                console.error('Copy failed:', err);
-            }
+            } catch (err) { console.error('Copy failed:', err); }
         }
-
-        function escapeHtml(text) {
-            var div = document.createElement('div');
-            div.innerText = text;
-            return div.innerHTML;
-        }
-
+        function escapeHtml(text) { var div = document.createElement('div'); div.innerText = text; return div.innerHTML; }
         function highlightLog(text) {
             let html = escapeHtml(text);
-            // Highlight key=value pairs
             html = html.replace(/(\b\w+=\S+)/g, '<span class="highlight">$1</span>');
-            // Highlight file paths like (file.go:123)
             html = html.replace(/(\([\w\d\_\-\/\.]+:\d+\))/g, '<span class="file-highlight">$1</span>');
             return html;
         }
@@ -607,14 +524,11 @@ const dashboardHTML = `<!DOCTYPE html>
             try {
                 const infoRes = await fetch('/api/info');
                 const info = await infoRes.json();
-                
                 document.getElementById('info-author').innerText = info.author;
                 var ghLink = document.getElementById('info-github');
-                ghLink.href = 'https://' + info.github;
-                ghLink.innerText = info.github;
+                ghLink.href = 'https://' + info.github; ghLink.innerText = info.github;
                 var repoLink = document.getElementById('info-repo');
-                repoLink.href = 'https://' + info.repo;
-                repoLink.innerText = info.repo;
+                repoLink.href = 'https://' + info.repo; repoLink.innerText = info.repo;
                 document.getElementById('info-version').innerText = info.version;
                 document.getElementById('info-runmode').innerText = info.runMode;
                 
@@ -622,21 +536,22 @@ const dashboardHTML = `<!DOCTYPE html>
                 featuresDiv.innerHTML = '';
                 info.features.forEach(function(f) {
                     var tag = document.createElement('span');
-                    tag.className = 'tag';
-                    tag.innerText = f;
+                    tag.className = 'tag'; tag.innerText = f;
                     featuresDiv.appendChild(tag);
                 });
 
-                // Sync log button state
                 logsEnabled = info.logs_enabled;
                 const btn = document.getElementById('toggle-log-btn');
-                if (logsEnabled) {
-                    btn.innerHTML = '<i class="fas fa-stop"></i> Stop Logs';
-                    btn.style.color = 'var(--error-color)';
-                } else {
-                    btn.innerHTML = '<i class="fas fa-play"></i> Resume Logs';
-                    btn.style.color = 'var(--success-color)';
-                }
+                if (logsEnabled) { btn.innerHTML = '<i class="fas fa-stop"></i> Stop Logs'; btn.style.color = 'var(--error-color)'; } 
+                else { btn.innerHTML = '<i class="fas fa-play"></i> Resume Logs'; btn.style.color = 'var(--success-color)'; }
+
+                const dot = document.getElementById('status-dot');
+                const txt = document.getElementById('t-status');
+                if (info.is_polling) { dot.classList.remove('off'); txt.innerText = translations[localStorage.getItem('cm-lang')||'en'].status; } 
+                else { dot.classList.add('off'); txt.innerText = 'STOPPED'; }
+
+                if (info.has_broadcast) { document.getElementById('broadcast-panel').style.display = 'block'; }
+                if (!info.has_console) { document.getElementById('terminal-input-wrapper').style.display = 'none'; }
 
                 const statsRes = await fetch('/api/stats');
                 const stats = await statsRes.json();
@@ -644,11 +559,10 @@ const dashboardHTML = `<!DOCTYPE html>
                 document.getElementById('stat-success').innerText = stats.api.SuccessCount || 0;
                 document.getElementById('stat-errors').innerText = stats.api.ErrorCount || 0;
                 document.getElementById('stat-latency').innerText = ((stats.api.AvgLatency / 1000000) || 0).toFixed(2) + 'ms';
-
             } catch (e) {
                 console.error('Error fetching data:', e);
                 document.getElementById('t-status').innerText = 'ERROR';
-                document.getElementById('t-status').style.color = 'var(--error-color)';
+                document.getElementById('status-dot').classList.add('off');
             }
         }
 
@@ -658,52 +572,141 @@ const dashboardHTML = `<!DOCTYPE html>
                 const logs = await res.json();
                 var container = document.getElementById('log-container');
                 var searchTerm = document.getElementById('log-search').value.toLowerCase();
-                
                 var isScrolledToBottom = container.scrollHeight - container.clientHeight <= container.scrollTop + 1;
                 
+                // Save terminal messages
+                var termMsgs = container.querySelectorAll('.log-cmd, .log-out');
+                var termHtml = '';
+                termMsgs.forEach(function(el){ termHtml += el.outerHTML; });
+
                 container.innerHTML = '';
                 
                 var filteredLogs = logs.filter(log => log.toLowerCase().includes(searchTerm));
-                
                 filteredLogs.forEach(function(log) {
                     var div = document.createElement('div');
                     var match = log.match(/^\[(.*?)\]\s+(DEBUG|INFO |WARN |ERROR|FATAL)\s+([\s\S]*)$/);
                     if (match) {
-                        var ts = match[1];
-                        var level = match[2].trim();
-                        var rest = match[3];
+                        var ts = match[1]; var level = match[2].trim(); var rest = match[3];
                         div.className = 'log-line level-' + level.toLowerCase();
                         var tsHtml = '<span class="log-ts">[' + ts + ']</span>';
                         var levelHtml = '<span class="log-level">' + level + '</span>';
                         div.innerHTML = tsHtml + levelHtml + highlightLog(rest);
-                    } else {
-                        div.className = 'log-line level-unknown';
-                        div.innerHTML = highlightLog(log);
-                    }
+                    } else { div.className = 'log-line level-unknown'; div.innerHTML = highlightLog(log); }
                     container.appendChild(div);
                 });
 
-                if (isScrolledToBottom && !isPaused) {
-                    container.scrollTop = container.scrollHeight;
-                }
-            } catch (e) {
-                console.error('Error fetching logs:', e);
+                // Re-append terminal messages
+                if (termHtml) { container.innerHTML += termHtml; }
+
+                if (isScrolledToBottom && !isPaused) { container.scrollTop = container.scrollHeight; }
+            } catch (e) { console.error('Error fetching logs:', e); }
+        }
+
+        // Terminal Logic
+        const termInput = document.getElementById('console-input');
+        const termPrompt = document.getElementById('term-prompt');
+        const termBody = document.getElementById('log-container');
+
+        termInput.addEventListener('keydown', function(e) {
+            if (e.key === 'Enter') {
+                const cmd = termInput.value.trim();
+                if (!cmd) return;
+                cmdHistory.push(cmd);
+                historyIndex = cmdHistory.length;
+
+                const cmdDiv = document.createElement('div');
+                cmdDiv.className = 'log-line log-cmd';
+                cmdDiv.innerHTML = '<span class="log-ts">[CMD]</span> ' + termPrompt.innerText + ' ' + escapeHtml(cmd);
+                termBody.appendChild(cmdDiv);
+                
+                termInput.value = '';
+                executeCmd(cmd);
+            } else if (e.key === 'ArrowUp') {
+                e.preventDefault();
+                if (historyIndex > 0) { historyIndex--; termInput.value = cmdHistory[historyIndex]; }
+            } else if (e.key === 'ArrowDown') {
+                e.preventDefault();
+                if (historyIndex < cmdHistory.length - 1) { historyIndex++; termInput.value = cmdHistory[historyIndex]; } 
+                else { historyIndex = cmdHistory.length; termInput.value = ''; }
             }
+        });
+
+        async function executeCmd(cmd) {
+            try {
+                const res = await fetch('/api/console/execute', {
+                    method: 'POST', headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({command: cmd})
+                });
+                const data = await res.json();
+                const outDiv = document.createElement('div');
+                outDiv.className = 'log-line level-info';
+                outDiv.innerHTML = '<span class="log-ts">[OUT]</span> ' + escapeHtml(data.output || 'No output.');
+                termBody.appendChild(outDiv);
+                termBody.scrollTop = termBody.scrollHeight;
+            } catch (err) { console.error('Exec error:', err); }
+        }
+
+        function changeTerminalOS(os) {
+            if (os === 'windows') {
+                termPrompt.innerText = 'PS C:\\CodeMeet>';
+                termPrompt.style.color = 'var(--accent-color)';
+            } else if (os === 'mac') {
+                termPrompt.innerText = 'user@codemeet ~ %';
+                termPrompt.style.color = 'var(--error-color)';
+            } else {
+                termPrompt.innerText = 'root@codemeet:~#';
+                termPrompt.style.color = 'var(--success-color)';
+            }
+        }
+
+        async function controlBot(action) {
+            try {
+                const res = await fetch('/api/bot/control', {
+                    method: 'POST', headers: {'Content-Type':'application/json'},
+                    body: JSON.stringify({action: action})
+                });
+                const data = await res.json();
+                if (data.success) {
+                    const dot = document.getElementById('status-dot');
+                    const txt = document.getElementById('t-status');
+                    if (data.is_polling) { dot.classList.remove('off'); txt.innerText = 'RUNNING'; } 
+                    else { dot.classList.add('off'); txt.innerText = 'STOPPED'; }
+                }
+            } catch (e) { console.error(e); }
+        }
+
+        async function sendBroadcast() {
+            const target = document.getElementById('broadcast-target').value;
+            const text = document.getElementById('broadcast-text').value;
+            if (!text) return alert('Message cannot be empty!');
+
+            const cmdDiv = document.createElement('div');
+            cmdDiv.className = 'log-line log-cmd';
+            cmdDiv.innerHTML = '<span class="log-ts">[CMD]</span> ' + termPrompt.innerText + ' broadcast to ' + target;
+            termBody.appendChild(cmdDiv);
+
+            try {
+                const res = await fetch('/api/broadcast/send', {
+                    method: 'POST', headers: {'Content-Type':'application/json'},
+                    body: JSON.stringify({target, text})
+                });
+                const data = await res.json();
+                const resDiv = document.createElement('div');
+                resDiv.className = 'log-line ' + (data.error ? 'level-error' : 'level-info');
+                resDiv.innerHTML = '<span class="log-ts">[OUT]</span> ' + (data.error ? 'Error: ' + data.error : 'Broadcast complete! Success: ' + data.success + ', Fail: ' + data.fail);
+                termBody.appendChild(resDiv);
+                termBody.scrollTop = termBody.scrollHeight;
+                if (!data.error) document.getElementById('broadcast-text').value = '';
+            } catch (e) { console.error(e); }
         }
 
         document.addEventListener('DOMContentLoaded', function() {
             const savedLang = localStorage.getItem('cm-lang') || 'en';
             applyLanguage(savedLang);
-            
-            const savedTheme = localStorage.getItem('cm-theme');
-            if (savedTheme === 'light') {
-                toggleTheme();
-            }
-
+            if (localStorage.getItem('cm-theme') === 'light') { toggleTheme(); }
             setInterval(fetchData, 2000);
             setInterval(fetchLogs, 1000);
-            fetchData();
-            fetchLogs();
+            fetchData(); fetchLogs();
         });
     </script>
 </body>

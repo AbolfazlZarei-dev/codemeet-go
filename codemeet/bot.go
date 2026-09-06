@@ -17,6 +17,8 @@ import (
 
 	"github.com/AbolfazlZarei-dev/codemeet-go/api"
 	"github.com/AbolfazlZarei-dev/codemeet-go/cache"
+	"github.com/AbolfazlZarei-dev/codemeet-go/contrib/broadcast"
+	"github.com/AbolfazlZarei-dev/codemeet-go/contrib/console"
 	"github.com/AbolfazlZarei-dev/codemeet-go/dispatcher"
 	"github.com/AbolfazlZarei-dev/codemeet-go/errors"
 	"github.com/AbolfazlZarei-dev/codemeet-go/logger"
@@ -30,7 +32,7 @@ import (
 )
 
 const (
-	Version       = "1.0.2"
+	Version       = "1.1.0"
 	Author        = "Abolfazl Zarei"
 	GitHubProfile = "github.com/AbolfazlZarei-dev"
 	GitHubRepo    = "github.com/AbolfazlZarei-dev/codemeet-go"
@@ -97,9 +99,15 @@ type Bot struct {
 	dashPass     string
 	dashSessions sync.Map
 
-	getMeSF singleflight.Group
+	pollingCtx    context.Context
+	pollingCancel context.CancelFunc
+	isPolling     atomic.Bool
 
-	stats botStats
+	getMeSF singleflight.Group
+	stats   botStats
+
+	console     *console.Console
+	broadcaster *broadcast.Broadcaster
 }
 
 type botStats struct {
@@ -113,26 +121,14 @@ type botStats struct {
 type Option func(*Bot)
 
 func WithBaseURL(url string) Option {
-	return func(b *Bot) {
-		b.baseURL = url
-		b.logger.Debug("Base URL changed", "url", url)
-	}
+	return func(b *Bot) { b.baseURL = url; b.logger.Debug("Base URL changed", "url", url) }
 }
-
 func WithHTTPClient(c *http.Client) Option {
-	return func(b *Bot) {
-		b.api.SetHTTPClient(c)
-		b.logger.Debug("Custom HTTP Client set")
-	}
+	return func(b *Bot) { b.api.SetHTTPClient(c); b.logger.Debug("Custom HTTP Client set") }
 }
-
 func WithTimeout(d time.Duration) Option {
-	return func(b *Bot) {
-		b.api.SetTimeout(d)
-		b.logger.Debug("HTTP Timeout set", "timeout", d.String())
-	}
+	return func(b *Bot) { b.api.SetTimeout(d); b.logger.Debug("HTTP Timeout set", "timeout", d.String()) }
 }
-
 func WithRetry(p *retry.Policy) Option {
 	return func(b *Bot) {
 		b.retry = p
@@ -140,7 +136,6 @@ func WithRetry(p *retry.Policy) Option {
 		b.logger.Info("Retry policy configured", "max_attempts", p.MaxAttempts)
 	}
 }
-
 func WithRateLimit(rps int) Option {
 	return func(b *Bot) {
 		b.rateLimit = ratelimit.New(rps)
@@ -148,7 +143,6 @@ func WithRateLimit(rps int) Option {
 		b.logger.Info("Rate limiter configured", "rps", rps)
 	}
 }
-
 func WithRateLimitBurst(rps, burst int) Option {
 	return func(b *Bot) {
 		b.rateLimit = ratelimit.NewWithBurst(rps, burst)
@@ -156,7 +150,6 @@ func WithRateLimitBurst(rps, burst int) Option {
 		b.logger.Info("Rate limiter with burst configured", "rps", rps, "burst", burst)
 	}
 }
-
 func WithCache(ttl time.Duration) Option {
 	return func(b *Bot) {
 		b.cache = cache.New(ttl)
@@ -164,7 +157,6 @@ func WithCache(ttl time.Duration) Option {
 		b.logger.Info("Cache initialized", "ttl", ttl.String())
 	}
 }
-
 func WithShardedCache(shards int, ttl time.Duration) Option {
 	return func(b *Bot) {
 		b.cache = cache.NewSharded(shards, ttl)
@@ -172,15 +164,9 @@ func WithShardedCache(shards int, ttl time.Duration) Option {
 		b.logger.Info("Sharded cache initialized", "shards", shards, "ttl", ttl.String())
 	}
 }
-
 func WithLogger(l *logger.Logger) Option {
-	return func(b *Bot) {
-		b.logger = l
-		b.logger.Debug("Custom logger attached")
-	}
+	return func(b *Bot) { b.logger = l; b.logger.Debug("Custom logger attached") }
 }
-
-// WithDashboardAuth فعال‌سازی صفحه لاگین برای داشبورد
 func WithDashboardAuth(user, pass string) Option {
 	return func(b *Bot) {
 		b.dashUser = user
@@ -189,8 +175,20 @@ func WithDashboardAuth(user, pass string) Option {
 		b.logger.Info("Dashboard authentication enabled", "user", user)
 	}
 }
-
-// WithMiddleware برای اضافه کردن میدل‌ورها به صورت مستقل
+func WithConsole(c *console.Console) Option {
+	return func(b *Bot) {
+		b.console = c
+		b.activeFeatures = append(b.activeFeatures, "Web Terminal")
+		b.logger.Info("Web Terminal module enabled")
+	}
+}
+func WithBroadcaster(bc *broadcast.Broadcaster) Option {
+	return func(b *Bot) {
+		b.broadcaster = bc
+		b.activeFeatures = append(b.activeFeatures, "Broadcast System")
+		b.logger.Info("Broadcast system module enabled")
+	}
+}
 func WithMiddleware(mws ...dispatcher.MiddlewareFunc) Option {
 	return func(b *Bot) {
 		b.activeFeatures = append(b.activeFeatures, fmt.Sprintf("Middlewares (%d)", len(mws)))
@@ -220,7 +218,6 @@ func New(token string, opts ...Option) (*Bot, error) {
 	}
 
 	b.logger.Info("Initializing CodeMeet Bot...")
-
 	b.api = api.NewClient(b.baseURL, token, b.logger)
 
 	for _, opt := range opts {
@@ -260,6 +257,42 @@ func (b *Bot) StartWebhook(ctx context.Context, cfg webhook.Config) error {
 	return wh.Start(ctx)
 }
 
+// StartPollingDashboard روشی برای استارت از طریق داشبورد
+func (b *Bot) StartPollingDashboard(cfg polling.Config) {
+	if b.isPolling.Load() {
+		b.logger.Warn("Polling is already running.")
+		return
+	}
+
+	b.pollingCtx, b.pollingCancel = context.WithCancel(context.Background())
+	b.isPolling.Store(true)
+	b.setRunMode("Long Polling (Dashboard)")
+	b.logger.Info("Bot started from Dashboard!")
+
+	go func() {
+		p := polling.NewWithLimiter(b.api, b.dispatcher, b.logger, cfg, b.rateLimit, b.retry)
+		if err := p.Start(b.pollingCtx); err != nil {
+			b.logger.Error("Polling stopped", "error", err)
+		}
+		b.isPolling.Store(false)
+		b.setRunMode("Stopped")
+	}()
+}
+
+// StopPollingDashboard روشی برای استاپ از طریق داشبورد
+func (b *Bot) StopPollingDashboard() {
+	if !b.isPolling.Load() {
+		b.logger.Warn("Polling is not running.")
+		return
+	}
+	b.logger.Info("Stopping bot from Dashboard...")
+	if b.pollingCancel != nil {
+		b.pollingCancel()
+	}
+	b.isPolling.Store(false)
+	b.setRunMode("Stopped")
+}
+
 func (b *Bot) setRunMode(mode string) {
 	b.mu.Lock()
 	b.runMode = mode
@@ -269,7 +302,6 @@ func (b *Bot) setRunMode(mode string) {
 
 func (b *Bot) printStartupBanner(ctx context.Context) {
 	var botName, botUser string
-
 	bannerCtx, cancel := context.WithTimeout(ctx, 15*time.Second)
 	defer cancel()
 
@@ -328,12 +360,10 @@ func (b *Bot) authMiddleware(next http.Handler) http.Handler {
 			next.ServeHTTP(w, r)
 			return
 		}
-
 		if r.URL.Path == "/login" {
 			next.ServeHTTP(w, r)
 			return
 		}
-
 		c, err := r.Cookie("cm_dash_session")
 		if err != nil || !b.isValidSession(c.Value) {
 			http.Redirect(w, r, "/login", http.StatusSeeOther)
@@ -366,21 +396,15 @@ func (b *Bot) handleLogin(w http.ResponseWriter, r *http.Request) {
 		fmt.Fprint(w, html)
 		return
 	}
-
 	if r.Method == http.MethodPost {
 		r.ParseForm()
 		user := r.FormValue("username")
 		pass := r.FormValue("password")
-
 		if user == b.dashUser && pass == b.dashPass {
 			token := generateToken()
 			b.dashSessions.Store(token, time.Now().Add(24*time.Hour))
 			http.SetCookie(w, &http.Cookie{
-				Name:     "cm_dash_session",
-				Value:    token,
-				Path:     "/",
-				HttpOnly: true,
-				Expires:  time.Now().Add(24 * time.Hour),
+				Name: "cm_dash_session", Value: token, Path: "/", HttpOnly: true, Expires: time.Now().Add(24 * time.Hour),
 			})
 			b.logger.Info("Dashboard login successful", "user", user, "ip", r.RemoteAddr)
 			http.Redirect(w, r, "/", http.StatusSeeOther)
@@ -397,11 +421,7 @@ func (b *Bot) handleLogout(w http.ResponseWriter, r *http.Request) {
 		b.dashSessions.Delete(c.Value)
 	}
 	http.SetCookie(w, &http.Cookie{
-		Name:     "cm_dash_session",
-		Value:    "",
-		Path:     "/",
-		HttpOnly: true,
-		Expires:  time.Unix(0, 0),
+		Name: "cm_dash_session", Value: "", Path: "/", HttpOnly: true, Expires: time.Unix(0, 0),
 	})
 	b.logger.Info("Dashboard user logged out", "ip", r.RemoteAddr)
 	http.Redirect(w, r, "/login", http.StatusSeeOther)
@@ -413,7 +433,7 @@ func generateToken() string {
 	return hex.EncodeToString(b)
 }
 
-// StartDashboard داشبورد مانیتورینگ
+// StartDashboard داشبورد مانیتورینگ و کنترل
 func (b *Bot) StartDashboard(ctx context.Context, addr string) error {
 	b.dashWriter = &DashboardWriter{}
 	if b.logger != nil {
@@ -423,7 +443,6 @@ func (b *Bot) StartDashboard(ctx context.Context, addr string) error {
 	b.logger.Info("Starting Web Dashboard...", "addr", addr)
 
 	mux := http.NewServeMux()
-
 	if b.dashUser != "" && b.dashPass != "" {
 		mux.HandleFunc("/login", b.handleLogin)
 		mux.HandleFunc("/logout", b.handleLogout)
@@ -438,14 +457,17 @@ func (b *Bot) StartDashboard(ctx context.Context, addr string) error {
 		w.Header().Set("Content-Type", "application/json")
 		b.mu.RLock()
 		info := map[string]interface{}{
-			"author":       Author,
-			"github":       GitHubProfile,
-			"repo":         GitHubRepo,
-			"version":      Version,
-			"runMode":      b.runMode,
-			"features":     b.activeFeatures,
-			"uptime":       time.Since(b.stats.StartTime).String(),
-			"logs_enabled": b.logger.IsEnabled(),
+			"author":        Author,
+			"github":        GitHubProfile,
+			"repo":          GitHubRepo,
+			"version":       Version,
+			"runMode":       b.runMode,
+			"features":      b.activeFeatures,
+			"uptime":        time.Since(b.stats.StartTime).String(),
+			"logs_enabled":  b.logger.IsEnabled(),
+			"has_console":   b.console != nil,
+			"has_broadcast": b.broadcaster != nil,
+			"is_polling":    b.isPolling.Load(),
 		}
 		b.mu.RUnlock()
 		json.NewEncoder(w).Encode(info)
@@ -469,13 +491,11 @@ func (b *Bot) StartDashboard(ctx context.Context, addr string) error {
 		json.NewEncoder(w).Encode(b.dashWriter.GetLogs())
 	})
 
-	// Endpoint جدید برای استاپ و استارت لاگ‌ها
 	mux.HandleFunc("/api/logs/toggle", func(w http.ResponseWriter, r *http.Request) {
 		if b.logger != nil {
 			newState := !b.logger.IsEnabled()
 			b.logger.SetEnabled(newState)
 			b.logger.Info("Logging state toggled", "new_state", newState)
-			// چون لاگ بالا ممکنه بعد از خاموش شدن پرینت نشه، ما اینجا مستقیم می‌فرستیم
 			if !newState {
 				b.dashWriter.Write([]byte("[DASHBOARD] Logging has been STOPPED by user.\n"))
 			} else {
@@ -487,8 +507,82 @@ func (b *Bot) StartDashboard(ctx context.Context, addr string) error {
 		http.Error(w, "logger not initialized", http.StatusInternalServerError)
 	})
 
-	handler := b.authMiddleware(mux)
+	// API کنترل ربات (استارت و استاپ)
+	mux.HandleFunc("/api/bot/control", func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodPost {
+			http.Error(w, "Method Not Allowed", http.StatusMethodNotAllowed)
+			return
+		}
+		var req struct {
+			Action string `json:"action"` // start, stop
+		}
+		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		}
 
+		if req.Action == "start" {
+			b.StartPollingDashboard(polling.DefaultConfig())
+			json.NewEncoder(w).Encode(map[string]bool{"success": true, "is_polling": true})
+		} else if req.Action == "stop" {
+			b.StopPollingDashboard()
+			json.NewEncoder(w).Encode(map[string]bool{"success": true, "is_polling": false})
+		} else {
+			http.Error(w, "Invalid action", http.StatusBadRequest)
+		}
+	})
+
+	// API اجرای دستورات ترمینال
+	mux.HandleFunc("/api/console/execute", func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodPost {
+			http.Error(w, "Method Not Allowed", http.StatusMethodNotAllowed)
+			return
+		}
+		if b.console == nil {
+			http.Error(w, "Console module not initialized", http.StatusBadRequest)
+			return
+		}
+		var req struct {
+			Command string `json:"command"`
+		}
+		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		}
+		b.dashWriter.Write([]byte(fmt.Sprintf("[CMD] > %s\n", req.Command)))
+		result := b.console.ExecuteCommand(r.Context(), req.Command)
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(map[string]string{"output": result})
+	})
+
+	// API ارسال پیام همگانی
+	mux.HandleFunc("/api/broadcast/send", func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodPost {
+			http.Error(w, "Method Not Allowed", http.StatusMethodNotAllowed)
+			return
+		}
+		if b.broadcaster == nil {
+			http.Error(w, "Broadcaster module not initialized", http.StatusBadRequest)
+			return
+		}
+		var req struct {
+			Target string `json:"target"`
+			Text   string `json:"text"`
+		}
+		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		}
+		success, fail, err := b.broadcaster.Send(r.Context(), req.Target, req.Text)
+		w.Header().Set("Content-Type", "application/json")
+		if err != nil {
+			json.NewEncoder(w).Encode(map[string]interface{}{"error": err.Error()})
+			return
+		}
+		json.NewEncoder(w).Encode(map[string]interface{}{"success": success, "fail": fail})
+	})
+
+	handler := b.authMiddleware(mux)
 	srv := &http.Server{Addr: addr, Handler: handler}
 	go func() {
 		<-ctx.Done()
@@ -498,7 +592,7 @@ func (b *Bot) StartDashboard(ctx context.Context, addr string) error {
 		srv.Shutdown(shutdownCtx)
 	}()
 
-	fmt.Printf(" Dashboard is running at http://localhost%s\n", addr)
+	fmt.Printf("🔥 Dashboard is running at http://localhost%s\n", addr)
 	return srv.ListenAndServe()
 }
 
@@ -513,10 +607,7 @@ func (b *Bot) RunMode() string {
 
 func (b *Bot) SetWebhook(ctx context.Context, url, secretToken string) error {
 	b.logger.Info("Setting webhook", "url", url)
-	return b.API().Webhook().Set(ctx, &models.SetWebhookRequest{
-		URL:         url,
-		SecretToken: secretToken,
-	})
+	return b.API().Webhook().Set(ctx, &models.SetWebhookRequest{URL: url, SecretToken: secretToken})
 }
 
 func (b *Bot) DeleteWebhook(ctx context.Context) error {
