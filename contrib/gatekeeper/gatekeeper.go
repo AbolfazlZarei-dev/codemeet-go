@@ -26,30 +26,27 @@ const (
 	defaultQueueSize   = 256
 )
 
-// مدل‌های قابل استفاده برای کپچا.
 const (
 	CaptchaMath    = "math"
 	CaptchaNumbers = "numbers"
 )
 
-// init برای تولید اعداد تصادفی متفاوت در هر اجرا
 func init() {
 	rand.Seed(time.Now().UnixNano())
 }
 
-// CaptchaConfig تنظیمات هر کپچا را مشخص می‌کند.
 type CaptchaConfig struct {
-	Type        string // نوع کپچا: math یا numbers
-	Options     int    // تعداد گزینه‌های پاسخ
-	MinNumber   int    // حداقل عدد مورد استفاده در سؤال ریاضی
-	MaxNumber   int    // حداکثر عدد مورد استفاده در سؤال ریاضی
-	Title       string // متن بالای سؤال
-	CorrectText string // متن دکمه پاسخ صحیح
-	WrongText   string // متن دکمه پاسخ اشتباه
+	Type        string
+	Options     int
+	MinNumber   int
+	MaxNumber   int
+	Title       string
+	CorrectText string
+	WrongText   string
 }
 
-// Config تنظیمات Gatekeeper را نگه می‌دارد.
 type Config struct {
+	BotID             string
 	ChallengeTimeout  time.Duration
 	WrongAnswersLimit int
 	VerifiedTTL       time.Duration
@@ -59,14 +56,14 @@ type Config struct {
 	WorkerCount int
 	QueueSize   int
 
-	SendCaptchaAction    func(ctx context.Context, chatID, userID, text string, keyboard *models.InlineKeyboardMarkup) (int, error)
+	SendCaptchaAction    func(ctx context.Context, chatID, userID, text string, keyboard *models.InlineKeyboardMarkup, replyToMessageID int) (int, error)
+	EditMessageAction    func(ctx context.Context, chatID string, messageID int, text string, markup *models.InlineKeyboardMarkup) error
 	AnswerCallbackAction func(ctx context.Context, callbackID, text string, showAlert bool) error
 	VerifyAction         func(ctx context.Context, chatID, userID string)
 	KickAction           func(ctx context.Context, chatID, userID string)
 	DeleteMessageAction  func(ctx context.Context, chatID string, messageID int)
 }
 
-// DefaultConfig تنظیمات مناسب اولیه را برمی‌گرداند.
 func DefaultConfig() Config {
 	return Config{
 		ChallengeTimeout:  defaultChallengeTimeout,
@@ -103,13 +100,14 @@ type stats struct {
 }
 
 type challengeJob struct {
-	ctx    context.Context
-	chatID string
-	userID string
-	config CaptchaConfig
+	ctx              context.Context
+	chatID           string
+	userID           string
+	user             *models.User
+	config           CaptchaConfig
+	replyToMessageID int
 }
 
-// Gatekeeper مسئول مدیریت کپچا و کاربران تأییدشده است.
 type Gatekeeper struct {
 	cfg       Config
 	pending   sync.Map
@@ -123,7 +121,6 @@ type Gatekeeper struct {
 	closeOnce sync.Once
 }
 
-// New یک Gatekeeper جدید می‌سازد.
 func New(cfg Config) *Gatekeeper {
 	def := DefaultConfig()
 
@@ -169,14 +166,13 @@ func (gk *Gatekeeper) worker() {
 	for {
 		select {
 		case job := <-gk.jobs:
-			_ = gk.sendChallenge(job.ctx, job.chatID, job.userID, job.config)
+			_ = gk.sendChallenge(job.ctx, job.chatID, job.userID, job.user, job.config, job.replyToMessageID)
 		case <-gk.ctx.Done():
 			return
 		}
 	}
 }
 
-// Middleware ورود کاربران و Callback کپچا را مدیریت می‌کند.
 func (gk *Gatekeeper) Middleware() dispatcher.MiddlewareFunc {
 	return func(next dispatcher.HandlerFunc) dispatcher.HandlerFunc {
 		return func(ctx context.Context, u *models.Update) {
@@ -185,31 +181,44 @@ func (gk *Gatekeeper) Middleware() dispatcher.MiddlewareFunc {
 				return
 			}
 
-			// کاربر جدید وارد گروه شده است.
+			// مدیریت ورود کاربر جدید
 			if u.Message != nil && len(u.Message.NewChatMembers) > 0 {
 				chatID := u.Message.Chat.ID
+				msgID := u.Message.MessageID
 				for i := range u.Message.NewChatMembers {
 					user := &u.Message.NewChatMembers[i]
 					if !user.IsBot {
-						gk.enqueueChallenge(chatID, user.ID, gk.cfg.Captcha)
+						// حذف پیام "کاربر جدید به گروه پیوست"
+						if gk.cfg.DeleteMessageAction != nil {
+							gk.cfg.DeleteMessageAction(ctx, chatID, msgID)
+						}
+						gk.enqueueChallenge(chatID, user.ID, user, gk.cfg.Captcha, 0)
 					}
 				}
 				return
 			}
 
-			// کلیک روی دکمه کپچا.
+			// مدیریت کلیک روی دکمه کپچا
 			if u.CallbackQuery != nil && strings.HasPrefix(u.CallbackQuery.Data, cbPrefix) {
 				gk.handleButton(ctx, u.CallbackQuery)
 				return
 			}
 
-			// پیام کاربر بررسی می‌شود تا مشخص شود اجازه عبور دارد یا هنوز در انتظار کپچاست.
+			// بررسی پیام‌های معمولی
 			if u.Message != nil && u.Message.From != nil {
 				chatID := u.Message.Chat.ID
 				userID := u.Message.From.ID
+				msgID := u.Message.MessageID
+
+				// جلوگیری از لوپ ربات
+				if userID == gk.cfg.BotID {
+					next(ctx, u)
+					return
+				}
+
 				key := makeKey(chatID, userID)
 
-				// اگر تأیید هنوز معتبر است، پیام عبور می‌کند.
+				// اگر کاربر قبلاً تأیید شده باشد
 				if value, ok := gk.verified.Load(key); ok {
 					if expiresAt, valid := value.(time.Time); valid && time.Now().Before(expiresAt) {
 						next(ctx, u)
@@ -218,10 +227,30 @@ func (gk *Gatekeeper) Middleware() dispatcher.MiddlewareFunc {
 					gk.verified.Delete(key)
 				}
 
-				// کاربر هنوز کپچا را حل نکرده است.
-				if _, ok := gk.pending.Load(key); ok {
+				// اگر کاربر در حال انجام کپچا باشد
+				if value, ok := gk.pending.Load(key); ok {
+					pu := value.(*pendingUser)
+
+					// 1. پیام کاربر را حذف کن
+					if gk.cfg.DeleteMessageAction != nil {
+						gk.cfg.DeleteMessageAction(ctx, chatID, msgID)
+					}
+
+					// 2. پیام کپچای قبلی را حذف کن
+					if pu.captchaMsgID != 0 && gk.cfg.DeleteMessageAction != nil {
+						gk.cfg.DeleteMessageAction(ctx, chatID, pu.captchaMsgID)
+					}
+
+					// 3. یک کپچای جدید برایش بفرست
+					gk.enqueueChallenge(chatID, userID, u.Message.From, gk.cfg.Captcha, 0)
 					return
 				}
+
+				if gk.cfg.DeleteMessageAction != nil {
+					gk.cfg.DeleteMessageAction(ctx, chatID, msgID)
+				}
+				gk.enqueueChallenge(chatID, userID, u.Message.From, gk.cfg.Captcha, 0)
+				return
 			}
 
 			next(ctx, u)
@@ -229,53 +258,12 @@ func (gk *Gatekeeper) Middleware() dispatcher.MiddlewareFunc {
 	}
 }
 
-// SendCaptcha یک کپچا را مستقیماً برای کاربر ارسال می‌کند.
-func (gk *Gatekeeper) SendCaptcha(ctx context.Context, chatID, userID string) error {
-	return gk.SendCaptchaWithConfig(ctx, chatID, userID, gk.cfg.Captcha)
-}
-
-// SendCaptchaWithConfig برای یک کاربر کپچای اختصاصی می‌فرستد.
-func (gk *Gatekeeper) SendCaptchaWithConfig(ctx context.Context, chatID, userID string, config CaptchaConfig) error {
-	if gk == nil {
-		return errors.New("gatekeeper is nil")
-	}
-	if chatID == "" || userID == "" {
-		return errors.New("chatID or userID is empty")
-	}
-
-	key := makeKey(chatID, userID)
-
-	if value, ok := gk.verified.Load(key); ok {
-		if expiresAt, valid := value.(time.Time); valid && time.Now().Before(expiresAt) {
-			return nil
-		}
-		gk.verified.Delete(key)
-	}
-
-	if _, ok := gk.pending.Load(key); ok {
-		return errors.New("captcha already pending")
-	}
-
-	if _, loaded := gk.inflight.LoadOrStore(key, struct{}{}); loaded {
-		return errors.New("captcha generation already in progress")
-	}
-
-	config = normalizeCaptchaConfig(gk.cfg.Captcha, config)
-
-	return gk.sendChallenge(ctx, chatID, userID, config)
-}
-
-// enqueueChallenge ساخت کپچا را وارد صف می‌کند.
-func (gk *Gatekeeper) enqueueChallenge(chatID, userID string, config CaptchaConfig) {
+func (gk *Gatekeeper) enqueueChallenge(chatID, userID string, user *models.User, config CaptchaConfig, replyToMessageID int) {
 	if chatID == "" || userID == "" {
 		return
 	}
 
 	key := makeKey(chatID, userID)
-
-	if _, ok := gk.pending.Load(key); ok {
-		return
-	}
 
 	if _, ok := gk.verified.Load(key); ok {
 		return
@@ -286,10 +274,12 @@ func (gk *Gatekeeper) enqueueChallenge(chatID, userID string, config CaptchaConf
 	}
 
 	job := challengeJob{
-		ctx:    context.Background(),
-		chatID: chatID,
-		userID: userID,
-		config: config,
+		ctx:              context.Background(),
+		chatID:           chatID,
+		userID:           userID,
+		user:             user,
+		config:           config,
+		replyToMessageID: replyToMessageID,
 	}
 
 	select {
@@ -300,8 +290,7 @@ func (gk *Gatekeeper) enqueueChallenge(chatID, userID string, config CaptchaConf
 	}
 }
 
-// sendChallenge کپچا را می‌سازد و ارسال می‌کند.
-func (gk *Gatekeeper) sendChallenge(ctx context.Context, chatID, userID string, config CaptchaConfig) error {
+func (gk *Gatekeeper) sendChallenge(ctx context.Context, chatID, userID string, user *models.User, config CaptchaConfig, replyToMessageID int) error {
 	key := makeKey(chatID, userID)
 	defer gk.inflight.Delete(key)
 
@@ -309,22 +298,17 @@ func (gk *Gatekeeper) sendChallenge(ctx context.Context, chatID, userID string, 
 		return err
 	}
 
-	if _, ok := gk.pending.Load(key); ok {
-		return errors.New("captcha already pending")
-	}
-
 	switch config.Type {
 	case CaptchaMath:
-		return gk.sendMathCaptcha(ctx, chatID, userID, key, config)
+		return gk.sendMathCaptcha(ctx, chatID, userID, key, user, config, replyToMessageID)
 	case CaptchaNumbers:
-		return gk.sendNumbersCaptcha(ctx, chatID, userID, key, config)
+		return gk.sendNumbersCaptcha(ctx, chatID, userID, key, user, config, replyToMessageID)
 	default:
 		return errors.New("unsupported captcha type")
 	}
 }
 
-// sendMathCaptcha کپچای ریاضی را می‌سازد.
-func (gk *Gatekeeper) sendMathCaptcha(ctx context.Context, chatID, userID, key string, config CaptchaConfig) error {
+func (gk *Gatekeeper) sendMathCaptcha(ctx context.Context, chatID, userID, key string, user *models.User, config CaptchaConfig, replyToMessageID int) error {
 	a := randomInt(config.MinNumber, config.MaxNumber)
 	b := randomInt(config.MinNumber, config.MaxNumber)
 
@@ -334,7 +318,13 @@ func (gk *Gatekeeper) sendMathCaptcha(ctx context.Context, chatID, userID, key s
 		title = "🤖 برای تأیید، پاسخ درست را انتخاب کنید:"
 	}
 
-	text := fmt.Sprintf("%s\n\n<b>%d + %d = ?</b>", title, a, b)
+	userName := "کاربر"
+	if user != nil {
+		userName = user.FullName()
+	}
+
+	// متن شامل نام و آیدی کاربر
+	text := fmt.Sprintf("👤 کاربر گرامی: <b>%s</b>\n🆔 آیدی: <code>%s</code>\n\n%s\n\n<b>%d + %d = ?</b>", userName, userID, title, a, b)
 
 	options := buildMathOptions(correctAnswer, config.Options)
 
@@ -348,18 +338,22 @@ func (gk *Gatekeeper) sendMathCaptcha(ctx context.Context, chatID, userID, key s
 
 	keyboard := models.NewInlineKeyboard(models.InlineRow(buttons...))
 
-	return gk.storeChallenge(ctx, chatID, userID, key, correctAnswer, text, keyboard)
+	return gk.storeChallenge(ctx, chatID, userID, key, user, correctAnswer, text, keyboard, replyToMessageID)
 }
 
-// sendNumbersCaptcha یک کپچای عددی ساده می‌سازد.
-func (gk *Gatekeeper) sendNumbersCaptcha(ctx context.Context, chatID, userID, key string, config CaptchaConfig) error {
+func (gk *Gatekeeper) sendNumbersCaptcha(ctx context.Context, chatID, userID, key string, user *models.User, config CaptchaConfig, replyToMessageID int) error {
 	correctAnswer := randomInt(config.MinNumber, config.MaxNumber)
 	title := config.Title
 	if title == "" {
 		title = "🔢 عدد درست را انتخاب کنید:"
 	}
 
-	text := fmt.Sprintf("%s\n\n<b>عدد: %d</b>", title, correctAnswer)
+	userName := "کاربر"
+	if user != nil {
+		userName = user.FullName()
+	}
+
+	text := fmt.Sprintf("👤 کاربر گرامی: <b>%s</b>\n🆔 آیدی: <code>%s</code>\n\n%s\n\n<b>عدد: %d</b>", userName, userID, title, correctAnswer)
 
 	options := buildNumberOptions(correctAnswer, config.Options, config.MinNumber, config.MaxNumber)
 
@@ -373,21 +367,27 @@ func (gk *Gatekeeper) sendNumbersCaptcha(ctx context.Context, chatID, userID, ke
 
 	keyboard := models.NewInlineKeyboard(models.InlineRow(buttons...))
 
-	return gk.storeChallenge(ctx, chatID, userID, key, correctAnswer, text, keyboard)
+	return gk.storeChallenge(ctx, chatID, userID, key, user, correctAnswer, text, keyboard, replyToMessageID)
 }
 
-// storeChallenge پیام را می‌فرستد و وضعیت کپچا را ثبت می‌کند.
-func (gk *Gatekeeper) storeChallenge(ctx context.Context, chatID, userID, key string, correctAnswer int, text string, keyboard *models.InlineKeyboardMarkup) error {
+func (gk *Gatekeeper) storeChallenge(ctx context.Context, chatID, userID, key string, user *models.User, correctAnswer int, text string, keyboard *models.InlineKeyboardMarkup, replyToMessageID int) error {
 	var (
 		messageID int
 		err       error
 	)
 
 	if gk.cfg.SendCaptchaAction != nil {
-		messageID, err = gk.cfg.SendCaptchaAction(ctx, chatID, userID, text, keyboard)
+		messageID, err = gk.cfg.SendCaptchaAction(ctx, chatID, userID, text, keyboard, replyToMessageID)
 		if err != nil {
 			return err
 		}
+	}
+
+	// حفظ تعداد پاسخ‌های اشتباه قبلی کاربر
+	var wrongAnswers int32 = 0
+	if val, exists := gk.pending.Load(key); exists {
+		wrongAnswers = val.(*pendingUser).wrongAnswers.Load()
+		gk.pending.Delete(key)
 	}
 
 	pu := &pendingUser{
@@ -397,16 +397,20 @@ func (gk *Gatekeeper) storeChallenge(ctx context.Context, chatID, userID, key st
 		expiresAt:     time.Now().Add(gk.cfg.ChallengeTimeout),
 		captchaMsgID:  messageID,
 	}
+	pu.wrongAnswers.Store(wrongAnswers)
 
 	if _, loaded := gk.pending.LoadOrStore(key, pu); loaded {
-		return errors.New("captcha already exists")
+		val, _ := gk.pending.Load(key)
+		existing := val.(*pendingUser)
+		existing.captchaMsgID = messageID
+		existing.correctAnswer = correctAnswer
+		existing.expiresAt = time.Now().Add(gk.cfg.ChallengeTimeout)
 	}
 
 	gk.stats.challengesSent.Add(1)
 	return nil
 }
 
-// handleButton پاسخ Callback را بررسی می‌کند.
 func (gk *Gatekeeper) handleButton(ctx context.Context, cq *models.CallbackQuery) {
 	if cq == nil || cq.From == nil || cq.Message == nil {
 		return
@@ -447,16 +451,23 @@ func (gk *Gatekeeper) handleButton(ctx context.Context, cq *models.CallbackQuery
 		return
 	}
 
-	// پاسخ صحیح
+	// اگر پاسخ درست بود
 	if answer == pu.correctAnswer {
-		if !gk.pending.CompareAndDelete(key, pu) {
-			gk.answerCallback(ctx, cq.ID, "این کپچا قبلاً بررسی شده است.", true)
-			return
-		}
-
+		gk.pending.Delete(key)
 		gk.verified.Store(key, time.Now().Add(gk.cfg.VerifiedTTL))
 		gk.stats.challengesPassed.Add(1)
 		gk.answerCallback(ctx, cq.ID, "✅ تأیید شدید.", false)
+
+		// پیام کپچا ادیت شود و دکمه‌ها حذف شوند
+		if gk.cfg.EditMessageAction != nil {
+			userName := "کاربر"
+			if cq.From != nil {
+				userName = cq.From.FullName()
+			}
+			newText := fmt.Sprintf("✅ %s عزیز، احراز هویت شما با موفقیت انجام شد.\nاکنون می‌توانید در گروه پیام ارسال کنید.", userName)
+			emptyMarkup := &models.InlineKeyboardMarkup{InlineKeyboard: [][]models.InlineKeyboardButton{}}
+			_ = gk.cfg.EditMessageAction(ctx, chatID, pu.captchaMsgID, newText, emptyMarkup)
+		}
 
 		if gk.cfg.VerifyAction != nil {
 			gk.cfg.VerifyAction(ctx, chatID, userID)
@@ -464,12 +475,23 @@ func (gk *Gatekeeper) handleButton(ctx context.Context, cq *models.CallbackQuery
 		return
 	}
 
-	// پاسخ اشتباه
+	// اگر پاسخ اشتباه بود
 	count := pu.wrongAnswers.Add(1)
-	gk.answerCallback(ctx, cq.ID, "❌ پاسخ اشتباه است.", false)
-
 	if int(count) >= gk.cfg.WrongAnswersLimit {
 		gk.failChallenge(ctx, key, pu)
+		if pu.captchaMsgID != 0 && gk.cfg.DeleteMessageAction != nil {
+			gk.cfg.DeleteMessageAction(ctx, pu.chatID, pu.captchaMsgID)
+		}
+	} else {
+		gk.answerCallback(ctx, cq.ID, "❌ پاسخ اشتباه است. کپچای جدید برای شما ارسال شد.", false)
+
+		// پیام کپچای قبلی حذف شود
+		if pu.captchaMsgID != 0 && gk.cfg.DeleteMessageAction != nil {
+			gk.cfg.DeleteMessageAction(ctx, pu.chatID, pu.captchaMsgID)
+		}
+
+		// کپچای جدید ارسال شود
+		gk.enqueueChallenge(pu.chatID, pu.userID, cq.From, gk.cfg.Captcha, 0)
 	}
 }
 
@@ -484,12 +506,14 @@ func (gk *Gatekeeper) failChallenge(ctx context.Context, key string, pu *pending
 	if pu == nil {
 		return
 	}
-	if !gk.pending.CompareAndDelete(key, pu) {
-		return
-	}
+	gk.pending.Delete(key)
 
 	gk.stats.challengesFailed.Add(1)
 	gk.stats.usersKicked.Add(1)
+
+	if pu.captchaMsgID != 0 && gk.cfg.DeleteMessageAction != nil {
+		gk.cfg.DeleteMessageAction(ctx, pu.chatID, pu.captchaMsgID)
+	}
 
 	if gk.cfg.KickAction != nil {
 		gk.cfg.KickAction(ctx, pu.chatID, pu.userID)
@@ -538,7 +562,6 @@ func (gk *Gatekeeper) cleanup(now time.Time) {
 	})
 }
 
-// Stats آمار فعلی Gatekeeper را برمی‌گرداند.
 func (gk *Gatekeeper) Stats() map[string]int64 {
 	return map[string]int64{
 		"challenges_sent":   gk.stats.challengesSent.Load(),
@@ -548,7 +571,6 @@ func (gk *Gatekeeper) Stats() map[string]int64 {
 	}
 }
 
-// Close اجرای Gatekeeper را متوقف می‌کند.
 func (gk *Gatekeeper) Close() {
 	if gk == nil {
 		return
