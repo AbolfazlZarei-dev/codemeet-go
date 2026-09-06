@@ -5,7 +5,6 @@ import (
 	"bytes"
 	"context"
 	"encoding/base64"
-	"errors"
 	"io"
 	"path/filepath"
 	"strings"
@@ -414,12 +413,13 @@ func (vd *VPNDetector) VPNDetectorMiddleware() dispatcher.MiddlewareFunc {
 				}
 			}
 
-			if !vd.cfg.CheckDocuments || msg.Document == nil {
+			if !vd.cfg.CheckDocuments || len(msg.Document) == 0 {
 				next(ctx, u)
 				return
 			}
 
-			doc := msg.Document
+			// چون Document از نوع []models.Document است، باید ایندکس 0 را بگیریم
+			doc := msg.Document[0]
 			fileName := strings.TrimSpace(doc.FileName)
 			mimeType := strings.TrimSpace(doc.MimeType)
 
@@ -1563,5 +1563,3 @@ func (vd *VPNDetector) Stats() map[string]int64 {
 		"errors":        vd.stats.errors.Load(),
 	}
 }
-
-var errInvalidContent = errors.New("invalid content")
