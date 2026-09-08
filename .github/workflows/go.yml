@@ -42,10 +42,10 @@ jobs:
       - name: Check formatting
         shell: bash
         run: |
-          files="$(gofmt -l .)"
+          files="$(find . -type f -name '*.go' -not -path './vendor/*' -print0 | xargs -0 gofmt -l)"
 
           if [ -n "$files" ]; then
-            echo "::error::The following files are not formatted:"
+            echo "::error::The following Go files are not formatted:"
             echo "$files"
             exit 1
           fi
@@ -76,6 +76,9 @@ jobs:
 
       - name: Download dependencies
         run: go mod download
+
+      - name: Verify modules
+        run: go mod verify
 
       - name: Build
         run: go build -v ./...
